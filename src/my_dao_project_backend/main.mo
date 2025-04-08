@@ -16,7 +16,8 @@ actor DAO {
     votes_for: Nat;
     votes_against: Nat;
     creator: Principal;
-    voters: HashMap.HashMap<Principal, Bool>;  
+    voters: HashMap.HashMap<Principal, Bool>;
+    vote_arguments: HashMap.HashMap<Principal, Text>;  // Added this field
   };
 
   public type Organization = {
@@ -34,21 +35,22 @@ actor DAO {
     votes_for: Nat;
     votes_against: Nat;
     creator: Principal;
-    voters: [(Principal, Bool)]; 
+    voters: [(Principal, Bool)];
+    vote_arguments: [(Principal, Text)];  // Added this field
   };
 
   public type OrgPublic = {
     id: Nat;
     name: Text;
     owner: Principal;
-    members: [Principal]; 
-    proposals: [ProposalPublic]; 
+    members: [Principal];
+    proposals: [ProposalPublic];
   };
 
   private var orgCounter : Nat = 0;
   private let organizations = HashMap.HashMap<Nat, Organization>(
-    0, 
-    Nat.equal, 
+    0,
+    Nat.equal,
     func(n: Nat) : Hash.Hash { Nat32.fromNat(n) }
   );
 
@@ -68,7 +70,7 @@ actor DAO {
     };
 
     organizations.put(id, org);
-    
+
     return id;  // Just return the organization ID
   };
 
@@ -103,6 +105,7 @@ actor DAO {
           votes_against = 0;
           creator = caller;
           voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
+          vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
         };
 
         org.proposals.put(proposalId, proposal);
@@ -111,7 +114,7 @@ actor DAO {
     };
   };
 
-  public shared ({ caller }) func voteOnProposal(orgId: Nat, proposalId: Nat, voteFor: Bool) : async Text {
+  public shared ({ caller }) func voteOnProposal(orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
       case (?org) {
@@ -124,8 +127,10 @@ actor DAO {
           case (?proposal) {
             if (proposal.voters.get(caller) == null) {
               let voters = proposal.voters;
+              let vote_arguments = proposal.vote_arguments;
               voters.put(caller, voteFor);
-              
+              vote_arguments.put(caller, argument);
+
               let updatedProposal = {
                 id = proposal.id;
                 title = proposal.title;
@@ -134,10 +139,11 @@ actor DAO {
                 votes_against = if (not voteFor) proposal.votes_against + 1 else proposal.votes_against;
                 creator = proposal.creator;
                 voters = voters;
+                vote_arguments = vote_arguments;
               };
 
               org.proposals.put(proposalId, updatedProposal);
-              return "Vote registered!";
+              return "Vote and argument registered!";
             } else {
               return "You have already voted on this proposal.";
             }
@@ -163,6 +169,7 @@ actor DAO {
               votes_against = p.votes_against;
               creator = p.creator;
               voters = Iter.toArray(p.voters.entries());
+              vote_arguments = Iter.toArray(p.vote_arguments.entries());
             }
           }
         );
@@ -193,6 +200,7 @@ actor DAO {
             votes_against = p.votes_against;
             creator = p.creator;
             voters = Iter.toArray(p.voters.entries());
+            vote_arguments = Iter.toArray(p.vote_arguments.entries());
           }
         }
       );
