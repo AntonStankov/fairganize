@@ -26,6 +26,7 @@ actor DAO {
     owner: Principal;
     members: HashMap.HashMap<Principal, Bool>;
     proposals: HashMap.HashMap<Nat, Proposal>;
+    quorum : Nat;
   };
 
   public type ProposalPublic = {
@@ -45,6 +46,7 @@ actor DAO {
     owner: Principal;
     members: [Principal];
     proposals: [ProposalPublic];
+    quorum: Nat;
   };
 
   private var orgCounter : Nat = 0;
@@ -66,12 +68,13 @@ actor DAO {
       name = name;
       owner = caller;
       members = members;
+      quorum = quorum;
       proposals = HashMap.HashMap<Nat, Proposal>(0, Nat.equal, func(n: Nat) : Hash.Hash { Nat32.fromNat(n) });
     };
 
     organizations.put(id, org);
 
-    return id;  // Just return the organization ID
+    return id; 
   };
 
   public shared ({ caller }) func addMember(orgId: Nat, newMember: Principal) : async Text {
@@ -114,14 +117,14 @@ actor DAO {
     };
   };
 
-  public shared ({ caller }) func voteOnProposal(orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
+    public shared ({ caller }) func voteOnProposal(orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
       case (?org) {
         if (org.members.get(caller) == null) {
           return "Only members can vote.";
         };
-
+  
         switch (org.proposals.get(proposalId)) {
           case (null) { return "Proposal not found."; };
           case (?proposal) {
@@ -130,7 +133,7 @@ actor DAO {
               let vote_arguments = proposal.vote_arguments;
               voters.put(caller, voteFor);
               vote_arguments.put(caller, argument);
-
+  
               let updatedProposal = {
                 id = proposal.id;
                 title = proposal.title;
@@ -141,9 +144,16 @@ actor DAO {
                 voters = voters;
                 vote_arguments = vote_arguments;
               };
-
+  
               org.proposals.put(proposalId, updatedProposal);
-              return "Vote and argument registered!";
+  
+              // Проверка за кворум
+              let totalVotes = proposal.votes_for + proposal.votes_against;
+              if (totalVotes >= org.quorum) {
+                return "Quorum reached! Proposal can now be finalized.";
+              } else {
+                return "Vote and argument registered!";
+              }
             } else {
               return "You have already voted on this proposal.";
             }
@@ -180,6 +190,7 @@ actor DAO {
           owner = org.owner;
           members = memberArray;
           proposals = proposalArray;
+          quorum = org.quorum
         };
       };
     };
@@ -211,6 +222,7 @@ actor DAO {
         owner = org.owner;
         members = memberArray;
         proposals = proposalArray;
+        quorum = org.quorum
       };
     });
   };
