@@ -1,3 +1,8 @@
+type User = 
+ record {
+   name: text;
+   "principal": principal;
+ };
 type Time = int;
 type ProposalPublic = 
  record {
@@ -31,8 +36,10 @@ service : {
   addMember: (nat, principal) -> (text);
   createOrganization: (text) -> (nat);
   createProposal: (nat, text, text, Time) -> (nat);
+  createUser: (text) -> (User);
   finalizeProposal: (nat, nat) -> (text);
   getAllOrganizations: () -> (vec OrgPublic) query;
   getOrganization: (nat) -> (opt OrgPublic) query;
+  getUserByPrincipal: (principal) -> (opt User) query;
   voteOnProposal: (nat, nat, bool, text) -> (text);
 }

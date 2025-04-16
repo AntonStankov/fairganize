@@ -23,13 +23,16 @@ export interface ProposalPublic {
   'votes_against' : bigint,
 }
 export type Time = bigint;
+export interface User { 'principal' : Principal, 'name' : string }
 export interface _SERVICE {
   'addMember' : ActorMethod<[bigint, Principal], string>,
   'createOrganization' : ActorMethod<[string], bigint>,
   'createProposal' : ActorMethod<[bigint, string, string, Time], bigint>,
+  'createUser' : ActorMethod<[string], User>,
   'finalizeProposal' : ActorMethod<[bigint, bigint], string>,
   'getAllOrganizations' : ActorMethod<[], Array<OrgPublic>>,
   'getOrganization' : ActorMethod<[bigint], [] | [OrgPublic]>,
+  'getUserByPrincipal' : ActorMethod<[Principal], [] | [User]>,
   'voteOnProposal' : ActorMethod<[bigint, bigint, boolean, string], string>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;

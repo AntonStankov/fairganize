@@ -7,8 +7,10 @@ import Hash "mo:base/Hash";
 import Nat32 "mo:base/Nat32";
 import Array "mo:base/Array";
 import Time "mo:base/Time"; // Import Time module
+import User "User"; // Import the User module
 
 actor DAO {
+  // Removed userManager instantiation
 
   public type Proposal = {
     id: Nat;
@@ -282,5 +284,14 @@ actor DAO {
         quorum = org.quorum
       };
     });
+  };
+
+  // UserManager integration
+  public shared ({ caller }) func createUser(name: Text) : async User.User {
+    return User.createUser(name, caller);
+  };
+
+  public query func getUserByPrincipal(principal: Principal) : async ?User.User {
+    return User.findUser([], principal); // Updated to use `findUser` with an empty array as a placeholder
   };
 };

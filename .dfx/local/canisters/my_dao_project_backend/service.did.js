@@ -1,5 +1,6 @@
 export const idlFactory = ({ IDL }) => {
   const Time = IDL.Int;
+  const User = IDL.Record({ 'principal' : IDL.Principal, 'name' : IDL.Text });
   const ProposalPublic = IDL.Record({
     'id' : IDL.Nat,
     'status' : IDL.Text,
@@ -28,9 +29,15 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Nat],
         [],
       ),
+    'createUser' : IDL.Func([IDL.Text], [User], []),
     'finalizeProposal' : IDL.Func([IDL.Nat, IDL.Nat], [IDL.Text], []),
     'getAllOrganizations' : IDL.Func([], [IDL.Vec(OrgPublic)], ['query']),
     'getOrganization' : IDL.Func([IDL.Nat], [IDL.Opt(OrgPublic)], ['query']),
+    'getUserByPrincipal' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(User)],
+        ['query'],
+      ),
     'voteOnProposal' : IDL.Func(
         [IDL.Nat, IDL.Nat, IDL.Bool, IDL.Text],
         [IDL.Text],
