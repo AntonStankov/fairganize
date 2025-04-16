@@ -1,8 +1,11 @@
+type Time = int;
 type ProposalPublic = 
  record {
    creator: principal;
+   deadline: Time;
    description: text;
    id: nat;
+   status: text;
    title: text;
    vote_arguments: vec record {
                          principal;
@@ -22,11 +25,13 @@ type OrgPublic =
    name: text;
    owner: principal;
    proposals: vec ProposalPublic;
+   quorum: nat;
  };
 service : {
   addMember: (nat, principal) -> (text);
   createOrganization: (text) -> (nat);
-  createProposal: (nat, text, text) -> (nat);
+  createProposal: (nat, text, text, Time) -> (nat);
+  finalizeProposal: (nat, nat) -> (text);
   getAllOrganizations: () -> (vec OrgPublic) query;
   getOrganization: (nat) -> (opt OrgPublic) query;
   voteOnProposal: (nat, nat, bool, text) -> (text);
