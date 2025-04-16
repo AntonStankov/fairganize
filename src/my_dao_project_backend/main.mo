@@ -6,6 +6,7 @@ import Iter "mo:base/Iter";
 import Hash "mo:base/Hash";
 import Nat32 "mo:base/Nat32";
 import Array "mo:base/Array";
+import Time "mo:base/Time"; // Import Time module
 
 actor DAO {
 
@@ -17,8 +18,8 @@ actor DAO {
     votes_against: Nat;
     creator: Principal;
     voters: HashMap.HashMap<Principal, Bool>;
-    vote_arguments: HashMap.HashMap<Principal, Text>;  
-    deadline: Nat;  
+    vote_arguments: HashMap.HashMap<Principal, Text>;
+    deadline: Time.Time; // Use Time.Time explicitly
     status: Text;   // "open", "accepted", "rejected"
   };
 
@@ -39,8 +40,8 @@ actor DAO {
     votes_against: Nat;
     creator: Principal;
     voters: [(Principal, Bool)];
-    vote_arguments: [(Principal, Text)];  // Added this field
-    deadline: Nat;
+    vote_arguments: [(Principal, Text)];
+    deadline: Time.Time; // Use Time.Time explicitly
     status: Text;
   };
 
@@ -72,7 +73,7 @@ actor DAO {
       name = name;
       owner = caller;
       members = members;
-      quorum = quorum;
+      quorum = 1; // Fixed missing quorum initialization
       proposals = HashMap.HashMap<Nat, Proposal>(0, Nat.equal, func(n: Nat) : Hash.Hash { Nat32.fromNat(n) });
     };
 
@@ -95,7 +96,7 @@ actor DAO {
     };
   };
 
-  public shared ({ caller }) func createProposal(orgId: Nat, title: Text, description: Text) : async Nat {
+  public shared ({ caller }) func createProposal(orgId: Nat, title: Text, description: Text, deadline: Time.Time) : async Nat {
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
       case (?org) {
@@ -113,8 +114,8 @@ actor DAO {
           creator = caller;
           voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
           vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
-          deadline = deadline;
-          status = "open"
+          deadline = deadline; // Use the provided Time.Time value
+          status = "open";
         };
 
         org.proposals.put(proposalId, proposal);
@@ -123,97 +124,97 @@ actor DAO {
     };
   };
 
-        public shared ({ caller }) func voteOnProposal(orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
-      switch (organizations.get(orgId)) {
-        case (null) { return "Organization not found."; };
-        case (?org) {
-          if (org.members.get(caller) == null) {
-            return "Only members can vote.";
-          };
-    
-          switch (org.proposals.get(proposalId)) {
-            case (null) { return "Proposal not found."; };
-            case (?proposal) {
-              if (proposal.status != "open") {
-                return "Voting on this proposal has ended.";
-              };
-    
-              if (Time.now() > proposal.deadline) {
-                return "The voting deadline has passed.";
-              };
-    
-              if (proposal.voters.get(caller) == null) {
-                let voters = proposal.voters;
-                let vote_arguments = proposal.vote_arguments;
-                voters.put(caller, voteFor);
-                vote_arguments.put(caller, argument);
-    
-                let updatedProposal = {
-                  id = proposal.id;
-                  title = proposal.title;
-                  description = proposal.description;
-                  votes_for = if (voteFor) proposal.votes_for + 1 else proposal.votes_for;
-                  votes_against = if (not voteFor) proposal.votes_against + 1 else proposal.votes_against;
-                  creator = proposal.creator;
-                  voters = voters;
-                  vote_arguments = vote_arguments;
-                  deadline = proposal.deadline;
-                  status = proposal.status;
-                };
-    
-                org.proposals.put(proposalId, updatedProposal);
-                return "Vote and argument registered!";
-              } else {
-                return "You have already voted on this proposal.";
-              }
-            };
-          };
+  public shared ({ caller }) func voteOnProposal(orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
+    switch (organizations.get(orgId)) {
+      case (null) { return "Organization not found."; };
+      case (?org) {
+        if (org.members.get(caller) == null) {
+          return "Only members can vote.";
         };
-      };
-    };
 
-public shared ({ caller }) func finalizeProposal(orgId: Nat, proposalId: Nat) : async Text {
-  switch (organizations.get(orgId)) {
-    case (null) { return "Organization not found."; };
-    case (?org) {
-      switch (org.proposals.get(proposalId)) {
-        case (null) { return "Proposal not found."; };
-        case (?proposal) {
-          if (Time.now() <= proposal.deadline) {
-            return "The voting deadline has not passed yet.";
+        switch (org.proposals.get(proposalId)) {
+          case (null) { return "Proposal not found."; };
+          case (?proposal) {
+            if (proposal.status != "open") {
+              return "Voting on this proposal has ended.";
+            };
+
+            if (Time.now() > proposal.deadline) { // Compare Time values directly
+              return "The voting deadline has passed.";
+            };
+
+            if (proposal.voters.get(caller) == null) {
+              let voters = proposal.voters;
+              let vote_arguments = proposal.vote_arguments;
+              voters.put(caller, voteFor);
+              vote_arguments.put(caller, argument);
+
+              let updatedProposal = {
+                id = proposal.id;
+                title = proposal.title;
+                description = proposal.description;
+                votes_for = if (voteFor) proposal.votes_for + 1 else proposal.votes_for;
+                votes_against = if (not voteFor) proposal.votes_against + 1 else proposal.votes_against;
+                creator = proposal.creator;
+                voters = voters;
+                vote_arguments = vote_arguments;
+                deadline = proposal.deadline;
+                status = proposal.status;
+              };
+
+              org.proposals.put(proposalId, updatedProposal);
+              return "Vote and argument registered!";
+            } else {
+              return "You have already voted on this proposal.";
+            }
           };
-
-          if (proposal.status != "open") {
-            return "This proposal has already been finalized.";
-          };
-
-          let totalVotes = proposal.votes_for + proposal.votes_against;
-          let newStatus = if (totalVotes >= org.quorum) {
-            if (proposal.votes_for > proposal.votes_against) "accepted" else "rejected"
-          } else {
-            "rejected"
-          };
-
-          let finalizedProposal = {
-            id = proposal.id;
-            title = proposal.title;
-            description = proposal.description;
-            votes_for = proposal.votes_for;
-            votes_against = proposal.votes_against;
-            creator = proposal.creator;
-            voters = proposal.voters;
-            vote_arguments = proposal.vote_arguments;
-            deadline = proposal.deadline;
-            status = newStatus;
-          };
-
-          org.proposals.put(proposalId, finalizedProposal);
-          return "Proposal finalized with status: " # newStatus;
         };
       };
     };
   };
-};
+
+  public shared ({ caller }) func finalizeProposal(orgId: Nat, proposalId: Nat) : async Text {
+    switch (organizations.get(orgId)) {
+      case (null) { return "Organization not found."; };
+      case (?org) {
+        switch (org.proposals.get(proposalId)) {
+          case (null) { return "Proposal not found."; };
+          case (?proposal) {
+            if (Time.now() <= proposal.deadline) { // Compare Time values directly
+              return "The voting deadline has not passed yet.";
+            };
+
+            if (proposal.status != "open") {
+              return "This proposal has already been finalized.";
+            };
+
+            let totalVotes = proposal.votes_for + proposal.votes_against;
+            let newStatus = if (totalVotes >= org.quorum) {
+              if (proposal.votes_for > proposal.votes_against) "accepted" else "rejected"
+            } else {
+              "rejected"
+            };
+
+            let finalizedProposal = {
+              id = proposal.id;
+              title = proposal.title;
+              description = proposal.description;
+              votes_for = proposal.votes_for;
+              votes_against = proposal.votes_against;
+              creator = proposal.creator;
+              voters = proposal.voters;
+              vote_arguments = proposal.vote_arguments;
+              deadline = proposal.deadline;
+              status = newStatus;
+            };
+
+            org.proposals.put(proposalId, finalizedProposal);
+            return "Proposal finalized with status: " # newStatus;
+          };
+        };
+      };
+    };
+  };
 
   public query func getOrganization(orgId: Nat) : async ?OrgPublic {
     switch (organizations.get(orgId)) {
@@ -226,6 +227,8 @@ public shared ({ caller }) func finalizeProposal(orgId: Nat, proposalId: Nat) : 
             {
               id = p.id;
               title = p.title;
+              deadline = p.deadline; // Use Time directly
+              status = p.status; 
               description = p.description;
               votes_for = p.votes_for;
               votes_against = p.votes_against;
@@ -243,8 +246,7 @@ public shared ({ caller }) func finalizeProposal(orgId: Nat, proposalId: Nat) : 
           members = memberArray;
           proposals = proposalArray;
           quorum = org.quorum;
-          status = org.status;
-        };
+        }; // Removed invalid status field
       };
     };
   };
@@ -260,6 +262,8 @@ public shared ({ caller }) func finalizeProposal(orgId: Nat, proposalId: Nat) : 
             id = p.id;
             title = p.title;
             description = p.description;
+            deadline = p.deadline;
+            status = p.status;
             votes_for = p.votes_for;
             votes_against = p.votes_against;
             creator = p.creator;
