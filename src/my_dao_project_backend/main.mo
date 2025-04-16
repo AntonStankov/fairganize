@@ -288,10 +288,30 @@ actor DAO {
 
   // UserManager integration
   public shared ({ caller }) func createUser(name: Text) : async User.User {
-    return User.createUser(name, caller);
+    // Check if the user already exists
+    switch (User.findUser([], caller)) {
+      case (?existingUser) {
+        return existingUser; // Return the existing user if found
+      };
+      case (null) {
+        return User.createUser(name, caller); // Create a new user if not found
+      };
+    };
   };
 
   public query func getUserByPrincipal(principal: Principal) : async ?User.User {
     return User.findUser([], principal); // Updated to use `findUser` with an empty array as a placeholder
+  };
+
+  public shared func createUserForTesting(name: Text, principal: Principal) : async User.User {
+    // Check if the user already exists
+    switch (User.findUser([], principal)) {
+      case (?existingUser) {
+        return existingUser; // Return the existing user if found
+      };
+      case (null) {
+        return User.createUser(name, principal); // Create a new user if not found
+      };
+    };
   };
 };
