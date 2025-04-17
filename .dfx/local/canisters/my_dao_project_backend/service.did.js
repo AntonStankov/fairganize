@@ -1,6 +1,10 @@
 export const idlFactory = ({ IDL }) => {
   const Time = IDL.Int;
   const User = IDL.Record({ 'principal' : IDL.Principal, 'name' : IDL.Text });
+  const ProposalType = IDL.Variant({
+    'removeMember' : IDL.Principal,
+    'general' : IDL.Null,
+  });
   const ProposalPublic = IDL.Record({
     'id' : IDL.Nat,
     'status' : IDL.Text,
@@ -9,6 +13,7 @@ export const idlFactory = ({ IDL }) => {
     'description' : IDL.Text,
     'deadline' : Time,
     'voters' : IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Bool)),
+    'proposalType' : ProposalType,
     'votes_for' : IDL.Nat,
     'vote_arguments' : IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Text)),
     'votes_against' : IDL.Nat,
@@ -23,6 +28,11 @@ export const idlFactory = ({ IDL }) => {
   });
   return IDL.Service({
     'addMember' : IDL.Func([IDL.Nat, IDL.Principal], [IDL.Text], []),
+    'createMemberRemovalProposal' : IDL.Func(
+        [IDL.Nat, IDL.Principal, IDL.Text, Time],
+        [IDL.Nat],
+        [],
+      ),
     'createOrganization' : IDL.Func([IDL.Text], [IDL.Nat], []),
     'createProposal' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Text, Time],
@@ -30,6 +40,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'createUser' : IDL.Func([IDL.Text], [User], []),
+    'createUserForTesting' : IDL.Func([IDL.Text, IDL.Principal], [User], []),
     'finalizeProposal' : IDL.Func([IDL.Nat, IDL.Nat], [IDL.Text], []),
     'getAllOrganizations' : IDL.Func([], [IDL.Vec(OrgPublic)], ['query']),
     'getOrganization' : IDL.Func([IDL.Nat], [IDL.Opt(OrgPublic)], ['query']),

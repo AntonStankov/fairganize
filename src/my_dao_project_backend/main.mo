@@ -12,6 +12,17 @@ import User "User"; // Import the User module
 actor DAO {
   // Removed userManager instantiation
 
+  private let users = HashMap.HashMap<Principal, User.User>(
+    0,
+    Principal.equal,
+    Principal.hash
+  );
+
+  public type ProposalType = {
+    #general;
+    #removeMember : Principal;
+  };
+
   public type Proposal = {
     id: Nat;
     title: Text;
@@ -23,6 +34,7 @@ actor DAO {
     vote_arguments: HashMap.HashMap<Principal, Text>;
     deadline: Time.Time; // Use Time.Time explicitly
     status: Text;   // "open", "accepted", "rejected"
+    proposalType: ProposalType;
   };
 
   public type Organization = {
@@ -45,6 +57,7 @@ actor DAO {
     vote_arguments: [(Principal, Text)];
     deadline: Time.Time; // Use Time.Time explicitly
     status: Text;
+    proposalType: ProposalType;
   };
 
   public type OrgPublic = {
@@ -118,6 +131,45 @@ actor DAO {
           vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
           deadline = deadline; // Use the provided Time.Time value
           status = "open";
+          proposalType = #general;
+        };
+
+        org.proposals.put(proposalId, proposal);
+        return proposalId;
+      };
+    };
+  };
+
+  public shared ({ caller }) func createMemberRemovalProposal(
+    orgId: Nat, 
+    memberToRemove: Principal, 
+    description: Text, 
+    deadline: Time.Time
+  ) : async Nat {
+    switch (organizations.get(orgId)) {
+      case (null) { return 0; };
+      case (?org) {
+        if (org.members.get(caller) == null) {
+          return 0;
+        };
+
+        if (org.owner == memberToRemove) {
+          return 0; // Cannot remove the owner
+        };
+
+        let proposalId = Iter.size(org.proposals.keys());
+        let proposal: Proposal = {
+          id = proposalId;
+          title = "Remove member: " # Principal.toText(memberToRemove);
+          description = description;
+          votes_for = 0;
+          votes_against = 0;
+          creator = caller;
+          voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
+          vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
+          deadline = deadline;
+          status = "open";
+          proposalType = #removeMember(memberToRemove);
         };
 
         org.proposals.put(proposalId, proposal);
@@ -162,6 +214,7 @@ actor DAO {
                 vote_arguments = vote_arguments;
                 deadline = proposal.deadline;
                 status = proposal.status;
+                proposalType = proposal.proposalType;
               };
 
               org.proposals.put(proposalId, updatedProposal);
@@ -197,6 +250,16 @@ actor DAO {
               "rejected"
             };
 
+            // Handle member removal if proposal is accepted
+            switch (proposal.proposalType) {
+              case (#removeMember(memberToRemove)) {
+                if (newStatus == "accepted") {
+                  org.members.delete(memberToRemove);
+                };
+              };
+              case (#general) {};
+            };
+
             let finalizedProposal = {
               id = proposal.id;
               title = proposal.title;
@@ -208,6 +271,7 @@ actor DAO {
               vote_arguments = proposal.vote_arguments;
               deadline = proposal.deadline;
               status = newStatus;
+              proposalType = proposal.proposalType;
             };
 
             org.proposals.put(proposalId, finalizedProposal);
@@ -237,6 +301,7 @@ actor DAO {
               creator = p.creator;
               voters = Iter.toArray(p.voters.entries());
               vote_arguments = Iter.toArray(p.vote_arguments.entries());
+              proposalType = p.proposalType;
             }
           }
         );
@@ -271,6 +336,7 @@ actor DAO {
             creator = p.creator;
             voters = Iter.toArray(p.voters.entries());
             vote_arguments = Iter.toArray(p.vote_arguments.entries());
+            proposalType = p.proposalType;
           }
         }
       );
@@ -288,29 +354,31 @@ actor DAO {
 
   // UserManager integration
   public shared ({ caller }) func createUser(name: Text) : async User.User {
-    // Check if the user already exists
-    switch (User.findUser([], caller)) {
+    switch (users.get(caller)) {
       case (?existingUser) {
-        return existingUser; // Return the existing user if found
+        return existingUser;
       };
       case (null) {
-        return User.createUser(name, caller); // Create a new user if not found
+        let newUser = User.createUser(name, caller);
+        users.put(caller, newUser);
+        return newUser;
       };
     };
   };
 
   public query func getUserByPrincipal(principal: Principal) : async ?User.User {
-    return User.findUser([], principal); // Updated to use `findUser` with an empty array as a placeholder
+    users.get(principal)
   };
 
   public shared func createUserForTesting(name: Text, principal: Principal) : async User.User {
-    // Check if the user already exists
-    switch (User.findUser([], principal)) {
+    switch (users.get(principal)) {
       case (?existingUser) {
-        return existingUser; // Return the existing user if found
+        return existingUser;
       };
       case (null) {
-        return User.createUser(name, principal); // Create a new user if not found
+        let newUser = User.createUser(name, principal);
+        users.put(principal, newUser);
+        return newUser;
       };
     };
   };
