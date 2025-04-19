@@ -16,6 +16,10 @@
     "src/my_dao_project_frontend"
   ],
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vite": "^6.3.1"
+  },
+  "dependencies": {
+    "@dfinity/auth-client": "^2.4.1"
   }
 }

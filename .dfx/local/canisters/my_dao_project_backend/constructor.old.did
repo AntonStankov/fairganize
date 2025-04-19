@@ -4,12 +4,18 @@ type User =
    "principal": principal;
  };
 type Time = int;
+type ProposalType = 
+ variant {
+   general;
+   removeMember: principal;
+ };
 type ProposalPublic = 
  record {
    creator: principal;
    deadline: Time;
    description: text;
    id: nat;
+   proposalType: ProposalType;
    status: text;
    title: text;
    vote_arguments: vec record {
@@ -34,6 +40,7 @@ type OrgPublic =
  };
 service : {
   addMember: (nat, principal) -> (text);
+  createMemberRemovalProposal: (nat, principal, text, Time) -> (nat);
   createOrganization: (text) -> (nat);
   createProposal: (nat, text, text, Time) -> (nat);
   createUser: (text) -> (User);
