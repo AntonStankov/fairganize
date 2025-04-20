@@ -7,6 +7,8 @@ import Hash "mo:base/Hash";
 import Nat32 "mo:base/Nat32";
 import Array "mo:base/Array";
 import Time "mo:base/Time"; // Import Time module
+import Int "mo:base/Int";
+import Blob "mo:base/Blob";
 import User "User"; // Import the User module
 
 actor DAO {
@@ -21,6 +23,7 @@ actor DAO {
   public type ProposalType = {
     #general;
     #removeMember : Principal;
+    #inviteMember : Principal;
   };
 
   public type Proposal = {
@@ -69,11 +72,24 @@ actor DAO {
     quorum: Nat;
   };
 
+  public type InvitationLink = {
+    orgId: Nat;
+    invitee: Principal;
+    expiration: Time.Time;
+    proposalId: Nat;
+  };
+
   private var orgCounter : Nat = 0;
   private let organizations = HashMap.HashMap<Nat, Organization>(
     0,
     Nat.equal,
     func(n: Nat) : Hash.Hash { Nat32.fromNat(n) }
+  );
+
+  private let invitations = HashMap.HashMap<Text, InvitationLink>(
+    0,
+    Text.equal,
+    Text.hash
   );
 
   public shared ({ caller }) func createOrganization(name: Text) : async Nat {
@@ -178,6 +194,107 @@ actor DAO {
     };
   };
 
+  public shared ({ caller }) func createInvitationProposal(
+    orgId: Nat,
+    invitee: Principal,
+    description: Text,
+    deadline: Time.Time
+  ) : async Nat {
+    switch (organizations.get(orgId)) {
+      case (null) { return 0; };
+      case (?org) {
+        if (org.members.get(caller) == null) {
+          return 0;
+        };
+
+        let proposalId = Iter.size(org.proposals.keys());
+        let proposal: Proposal = {
+          id = proposalId;
+          title = "Invite member: " # Principal.toText(invitee);
+          description = description;
+          votes_for = 0;
+          votes_against = 0;
+          creator = caller;
+          voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
+          vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
+          deadline = deadline;
+          status = "open";
+          proposalType = #inviteMember(invitee);
+        };
+
+        org.proposals.put(proposalId, proposal);
+        return proposalId;
+      };
+    };
+  };
+
+  private func generateInvitationId() : Text {
+    let timestamp = Time.now();
+    let timestampText = Int.toText(timestamp);
+    let hashValue = Text.hash(timestampText # Principal.toText(Principal.fromActor(DAO)));
+    return timestampText # "-" # Nat32.toText(hashValue);
+  };
+
+  public shared ({ caller }) func generateInvitationLink(
+    orgId: Nat,
+    proposalId: Nat,
+    invitee: Principal
+  ) : async ?Text {
+    switch (organizations.get(orgId)) {
+      case (null) { return null; };
+      case (?org) {
+        switch (org.proposals.get(proposalId)) {
+          case (null) { return null; };
+          case (?proposal) {
+            switch (proposal.proposalType) {
+              case (#inviteMember(proposedInvitee)) {
+                if (proposedInvitee != invitee) { return null; };
+                if (proposal.status != "accepted") { return null; };
+
+                let invitationId = generateInvitationId();
+                let invitation: InvitationLink = {
+                  orgId = orgId;
+                  invitee = invitee;
+                  expiration = Time.now() + (7 * 24 * 60 * 60 * 1_000_000_000); // 1 week
+                  proposalId = proposalId;
+                };
+
+                invitations.put(invitationId, invitation);
+                return ?invitationId;
+              };
+              case (_) { return null; };
+            };
+          };
+        };
+      };
+    };
+  };
+
+  public shared ({ caller }) func acceptInvitation(invitationId: Text) : async Text {
+    switch (invitations.get(invitationId)) {
+      case (null) { return "Invalid invitation link."; };
+      case (?invitation) {
+        if (caller != invitation.invitee) {
+          return "This invitation is not for you.";
+        };
+
+        if (Time.now() > invitation.expiration) {
+          invitations.delete(invitationId);
+          return "This invitation has expired.";
+        };
+
+        switch (organizations.get(invitation.orgId)) {
+          case (null) { return "Organization not found."; };
+          case (?org) {
+            org.members.put(caller, true);
+            invitations.delete(invitationId);
+            return "Welcome to the organization!";
+          };
+        };
+      };
+    };
+  };
+
   public shared ({ caller }) func voteOnProposal(orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
@@ -255,6 +372,12 @@ actor DAO {
               case (#removeMember(memberToRemove)) {
                 if (newStatus == "accepted") {
                   org.members.delete(memberToRemove);
+                };
+              };
+              case (#inviteMember(invitee)) {
+                if (newStatus == "accepted") {
+                  // Invitation approved, but member needs to accept it using the link
+                  return "Invitation proposal approved. Generate and share the invitation link.";
                 };
               };
               case (#general) {};
@@ -379,6 +502,70 @@ actor DAO {
         let newUser = User.createUser(name, principal);
         users.put(principal, newUser);
         return newUser;
+      };
+    };
+  };
+
+  // Define a new public type for invitation information
+  public type InvitationInfo = {
+    invitationId: Text;
+    orgId: Nat;
+    orgName: Text;
+    expiration: Time.Time;
+  };
+
+  public shared query ({ caller }) func getMyInvitations() : async [InvitationInfo] {
+    var myInvitations : [InvitationInfo] = [];
+    
+    for ((id, invitation) in invitations.entries()) {
+      if (invitation.invitee == caller) {
+        switch (organizations.get(invitation.orgId)) {
+          case (?org) {
+            let invitationInfo : InvitationInfo = {
+              invitationId = id;
+              orgId = invitation.orgId;
+              orgName = org.name;
+              expiration = invitation.expiration;
+            };
+            myInvitations := Array.append(myInvitations, [invitationInfo]);
+          };
+          case (null) { /* Skip if org doesn't exist */ };
+        };
+      };
+    };
+    
+    return myInvitations;
+  };
+
+  public shared ({ caller }) func respondToInvitation(invitationId: Text, accept: Bool) : async Text {
+    switch (invitations.get(invitationId)) {
+      case (null) { return "Invalid invitation link."; };
+      case (?invitation) {
+        if (caller != invitation.invitee) {
+          return "This invitation is not for you.";
+        };
+
+        if (Time.now() > invitation.expiration) {
+          invitations.delete(invitationId);
+          return "This invitation has expired.";
+        };
+
+        // Delete the invitation in either case
+        invitations.delete(invitationId);
+
+        if (accept) {
+          // Accept the invitation
+          switch (organizations.get(invitation.orgId)) {
+            case (null) { return "Organization not found."; };
+            case (?org) {
+              org.members.put(caller, true);
+              return "You have joined the organization!";
+            };
+          };
+        } else {
+          // Reject the invitation
+          return "You have declined the invitation.";
+        };
       };
     };
   };
