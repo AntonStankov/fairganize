@@ -1,0 +1,79 @@
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fairganize - Main</title>
+    </head>
+
+    <body>
+    <div id="loginSection">
+        <h1>Fairganize</h1>
+        <div id="nameSection">
+        <label for="nameInput">Enter your name:</label>
+        <input type="text" id="nameInput" />
+        <button id="submitNameButton">Submit</button>
+        </div>
+    </div>
+
+    <div id="mainPage" style="display: none;">
+        <h1>Welcome to Fairganize</h1>
+        <button id="createOrgButton">Create Organization</button>
+    </div>
+
+    <script type="module">
+        import { Actor, HttpAgent } from "@dfinity/agent";
+        import { idlFactory as backendIDL, canisterId as backendCanisterId } from "declarations/my_dao_project_backend";
+
+        const nameInput = document.getElementById("nameInput");
+        const submitNameButton = document.getElementById("submitNameButton");
+        const loginSection = document.getElementById("loginSection");
+        const mainPage = document.getElementById("mainPage");
+        const createOrgButton = document.getElementById("createOrgButton");
+
+        let backendActor;
+
+        // Initialize backend actor
+        const initBackendActor = async () => {
+        const agent = new HttpAgent();
+        backendActor = Actor.createActor(backendIDL, {
+            agent,
+            canisterId: backendCanisterId,
+        });
+        };
+
+        submitNameButton.addEventListener("click", async () => {
+        const name = nameInput.value.trim();
+        if (!name) {
+            alert("Please enter a valid name.");
+            return;
+        }
+
+        // Call backend to assign name to principal
+        await backendActor.createUser(name);
+
+        // Redirect to main page
+        loginSection.style.display = "none";
+        mainPage.style.display = "block";
+        });
+
+        createOrgButton.addEventListener("click", async () => {
+        const orgName = prompt("Enter the name of the organization:");
+        if (!orgName) {
+            alert("Organization name cannot be empty.");
+            return;
+        }
+
+        // Call backend to create organization
+        const orgId = await backendActor.createOrganization(orgName);
+        alert(`Organization created with ID: ${orgId}`);
+        });
+
+        // Initialize actor on page load
+        initBackendActor();
+    </script>
+    </body>
+
+    </html>

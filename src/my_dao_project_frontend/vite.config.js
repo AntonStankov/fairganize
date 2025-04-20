@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath, URL } from 'url';
+import { resolve } from 'path'; // <- ADD THIS
 import environment from 'vite-plugin-environment';
 import dotenv from 'dotenv';
 
@@ -8,6 +9,12 @@ dotenv.config({ path: '../../.env' });
 export default defineConfig({
   build: {
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        index: resolve(__dirname, 'index.html'),
+        main: resolve(__dirname, 'main.html'),
+      },
+    },
   },
   optimizeDeps: {
     esbuildOptions: {

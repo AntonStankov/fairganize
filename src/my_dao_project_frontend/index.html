@@ -9,16 +9,10 @@
 </head>
 
 <body>
-  <div class="browser-warning">
-    ⚠️ If this page appears broken, try reloading. If the problem persists, try switching browsers; Chrome or
-    Firefox are recommended.
-  </div>
-  <div id="root"></div>
   <h1>Fairganize</h1>
   <button id="connectButton">Connect Internet Identity</button>
   <p id="principalDisplay"></p>
 
-  <script type="module" src="/src/main.js"></script>
   <script type="module">
     import { AuthClient } from "@dfinity/auth-client";
 
@@ -34,6 +28,12 @@
           const identity = authClient.getIdentity();
           const principal = identity.getPrincipal().toText();
           principalDisplay.textContent = `Connected Principal: ${principal}`;
+
+          console.log("Connected Principal:", principal);
+          console.log("Redirecting to main.html...");
+
+          // Redirect to main.html
+          window.location.href = "./main.html";
         },
       });
     });
