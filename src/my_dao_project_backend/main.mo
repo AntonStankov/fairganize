@@ -24,6 +24,7 @@ actor DAO {
     #general;
     #removeMember : Principal;
     #inviteMember : Principal;
+    #changeQuorum : Nat;
   };
 
   public type Proposal = {
@@ -228,6 +229,44 @@ actor DAO {
     };
   };
 
+  public shared ({ caller }) func createQuorumChangeProposal(
+    orgId: Nat,
+    newQuorum: Nat,
+    description: Text,
+    deadline: Time.Time
+  ) : async Nat {
+    switch (organizations.get(orgId)) {
+      case (null) { return 0; };
+      case (?org) {
+        if (org.members.get(caller) == null) {
+          return 0;
+        };
+        
+        if (newQuorum == 0) {
+          return 0; // Prevent setting quorum to 0
+        };
+
+        let proposalId = Iter.size(org.proposals.keys());
+        let proposal: Proposal = {
+          id = proposalId;
+          title = "Change quorum to: " # Nat.toText(newQuorum);
+          description = description;
+          votes_for = 0;
+          votes_against = 0;
+          creator = caller;
+          voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
+          vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
+          deadline = deadline;
+          status = "open";
+          proposalType = #changeQuorum(newQuorum);
+        };
+
+        org.proposals.put(proposalId, proposal);
+        return proposalId;
+      };
+    };
+  };
+
   private func generateInvitationId() : Text {
     let timestamp = Time.now();
     let timestampText = Int.toText(timestamp);
@@ -378,6 +417,20 @@ actor DAO {
                 if (newStatus == "accepted") {
                   // Invitation approved, but member needs to accept it using the link
                   return "Invitation proposal approved. Generate and share the invitation link.";
+                };
+              };
+              case (#changeQuorum(newQuorum)) {
+                if (newStatus == "accepted") {
+                  // Create a new organization with updated quorum
+                  let updatedOrg: Organization = {
+                    id = org.id;
+                    name = org.name;
+                    owner = org.owner;
+                    members = org.members;
+                    proposals = org.proposals;
+                    quorum = newQuorum;
+                  };
+                  organizations.put(orgId, updatedOrg);
                 };
               };
               case (#general) {};
