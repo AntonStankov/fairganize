@@ -10,6 +10,7 @@ import Time "mo:base/Time"; // Import Time module
 import Int "mo:base/Int";
 import Blob "mo:base/Blob";
 import User "User"; // Import the User module
+import Blog "Blog"; // Import the Blog module
 
 actor DAO {
   // Removed userManager instantiation
@@ -20,12 +21,19 @@ actor DAO {
     Principal.hash
   );
 
+  private let blogPosts = HashMap.HashMap<Nat, [Blog.BlogPost]>(
+    0, 
+    Nat.equal,
+    func(n: Nat) : Hash.Hash { Nat32.fromNat(n) }
+  );
+
   public type ProposalType = {
     #general;
     #removeMember : Principal;
     #inviteMember : Principal;
     #changeQuorum : Nat;
     #changeName : Text;
+    #publishBlogPost : Blog.BlogPost;
   };
 
   public type Proposal = {
@@ -306,6 +314,53 @@ actor DAO {
     };
   };
 
+  public shared ({ caller }) func createBlogPostProposal(
+    orgId: Nat,
+    title: Text,
+    content: Text,
+    description: Text,
+    deadline: Time.Time
+  ) : async Nat {
+    switch (organizations.get(orgId)) {
+      case (null) { return 0; };
+      case (?org) {
+        if (org.members.get(caller) == null) {
+          return 0;
+        };
+        
+        let blogPost: Blog.BlogPost = {
+          id = switch (blogPosts.get(orgId)) {
+            case (null) { 0 };
+            case (?posts) { posts.size() };
+          };
+          title = title;
+          content = content;
+          author = caller;
+          timestamp = Time.now();
+          orgId = orgId;
+        };
+
+        let proposalId = Iter.size(org.proposals.keys());
+        let proposal: Proposal = {
+          id = proposalId;
+          title = "Publish blog post: " # title;
+          description = description;
+          votes_for = 0;
+          votes_against = 0;
+          creator = caller;
+          voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
+          vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
+          deadline = deadline;
+          status = "open";
+          proposalType = #publishBlogPost(blogPost);
+        };
+
+        org.proposals.put(proposalId, proposal);
+        return proposalId;
+      };
+    };
+  };
+
   private func generateInvitationId() : Text {
     let timestamp = Time.now();
     let timestampText = Int.toText(timestamp);
@@ -484,6 +539,18 @@ actor DAO {
                     quorum = org.quorum;
                   };
                   organizations.put(orgId, updatedOrg);
+                };
+              };
+              case (#publishBlogPost(blogPost)) {
+                if (newStatus == "accepted") {
+                  // Add the blog post to the organization's blog
+                  let orgBlogPosts = switch (blogPosts.get(blogPost.orgId)) {
+                    case (null) { [] };
+                    case (?posts) { posts };
+                  };
+                  
+                  let updatedPosts = Array.append(orgBlogPosts, [blogPost]);
+                  blogPosts.put(blogPost.orgId, updatedPosts);
                 };
               };
               case (#general) {};
@@ -721,5 +788,23 @@ actor DAO {
     };
     
     return myOrgs;
+  };
+
+  // Query functions for blog posts
+  public query func getBlogPosts(orgId: Nat) : async [Blog.BlogPost] {
+    switch (blogPosts.get(orgId)) {
+      case (null) { [] };
+      case (?posts) { posts };
+    };
+  };
+
+  public query func getBlogPost(orgId: Nat, postId: Nat) : async ?Blog.BlogPost {
+    switch (blogPosts.get(orgId)) {
+      case (null) { null };
+      case (?posts) {
+        if (postId >= posts.size()) { return null; };
+        ?posts[postId];
+      };
+    };
   };
 };
