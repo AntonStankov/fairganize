@@ -25,6 +25,7 @@ actor DAO {
     #removeMember : Principal;
     #inviteMember : Principal;
     #changeQuorum : Nat;
+    #changeName : Text;
   };
 
   public type Proposal = {
@@ -267,6 +268,44 @@ actor DAO {
     };
   };
 
+  public shared ({ caller }) func createNameChangeProposal(
+    orgId: Nat,
+    newName: Text,
+    description: Text,
+    deadline: Time.Time
+  ) : async Nat {
+    switch (organizations.get(orgId)) {
+      case (null) { return 0; };
+      case (?org) {
+        if (org.members.get(caller) == null) {
+          return 0;
+        };
+        
+        if (Text.size(newName) == 0) {
+          return 0; // Prevent empty organization names
+        };
+
+        let proposalId = Iter.size(org.proposals.keys());
+        let proposal: Proposal = {
+          id = proposalId;
+          title = "Change organization name to: " # newName;
+          description = description;
+          votes_for = 0;
+          votes_against = 0;
+          creator = caller;
+          voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
+          vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
+          deadline = deadline;
+          status = "open";
+          proposalType = #changeName(newName);
+        };
+
+        org.proposals.put(proposalId, proposal);
+        return proposalId;
+      };
+    };
+  };
+
   private func generateInvitationId() : Text {
     let timestamp = Time.now();
     let timestampText = Int.toText(timestamp);
@@ -429,6 +468,20 @@ actor DAO {
                     members = org.members;
                     proposals = org.proposals;
                     quorum = newQuorum;
+                  };
+                  organizations.put(orgId, updatedOrg);
+                };
+              };
+              case (#changeName(newName)) {
+                if (newStatus == "accepted") {
+                  // Create a new organization with updated name
+                  let updatedOrg: Organization = {
+                    id = org.id;
+                    name = newName;
+                    owner = org.owner;
+                    members = org.members;
+                    proposals = org.proposals;
+                    quorum = org.quorum;
                   };
                   organizations.put(orgId, updatedOrg);
                 };
