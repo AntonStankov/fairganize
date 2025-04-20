@@ -1,79 +1,110 @@
-    <!DOCTYPE html>
-    <html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 
-    <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fairganize - Main</title>
-    </head>
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fairganize - Main</title>
+</head>
 
-    <body>
-    <div id="loginSection">
-        <h1>Fairganize</h1>
-        <div id="nameSection">
-        <label for="nameInput">Enter your name:</label>
-        <input type="text" id="nameInput" />
-        <button id="submitNameButton">Submit</button>
-        </div>
-    </div>
+<body>
+  <div id="nameSection">
+    <h1>Fairganize</h1>
+    <label for="nameInput">Enter your name:</label>
+    <input type="text" id="nameInput" />
+    <button id="submitNameButton">Submit</button>
+    <p id="nameStatus" style="color: green; display: none;">Name assigned successfully!</p>
+  </div>
 
-    <div id="mainPage" style="display: none;">
-        <h1>Welcome to Fairganize</h1>
-        <button id="createOrgButton">Create Organization</button>
-    </div>
+  <div id="mainPage" style="display: none;"></div>
+    <h1>Welcome to Fairganize</h1>
+    <p id="principalDisplay"></p>
+    <button id="createOrgButton">Create Organization</button>
+    <button id="viewOrgButton">View Organizations</button>
+  </div>
 
-    <script type="module">
-        import { Actor, HttpAgent } from "@dfinity/agent";
-        import { idlFactory as backendIDL, canisterId as backendCanisterId } from "declarations/my_dao_project_backend";
+  <script type="module">
+    import { Actor, HttpAgent } from "@dfinity/agent";
+    import { idlFactory as backendIDL, canisterId as backendCanisterId } from "declarations/my_dao_project_backend";
+    import { AuthClient } from "@dfinity/auth-client";
 
-        const nameInput = document.getElementById("nameInput");
-        const submitNameButton = document.getElementById("submitNameButton");
-        const loginSection = document.getElementById("loginSection");
-        const mainPage = document.getElementById("mainPage");
-        const createOrgButton = document.getElementById("createOrgButton");
+    const nameInput = document.getElementById("nameInput");
+    const submitNameButton = document.getElementById("submitNameButton");
+    const nameStatus = document.getElementById("nameStatus");
+    const mainPage = document.getElementById("mainPage");
+    const nameSection = document.getElementById("nameSection");
+    const principalDisplay = document.getElementById("principalDisplay");
+    const createOrgButton = document.getElementById("createOrgButton");
+    const viewOrgButton = document.getElementById("viewOrgButton");
 
-        let backendActor;
+    let backendActor;
+    let userPrincipal;
 
-        // Initialize backend actor
-        const initBackendActor = async () => {
-        const agent = new HttpAgent();
-        backendActor = Actor.createActor(backendIDL, {
-            agent,
-            canisterId: backendCanisterId,
-        });
-        };
+    // Initialize backend actor
+    const initBackendActor = async () => {
+      const agent = new HttpAgent();
 
-        submitNameButton.addEventListener("click", async () => {
-        const name = nameInput.value.trim();
-        if (!name) {
-            alert("Please enter a valid name.");
-            return;
-        }
+      // Disable certificate verification for local replica
+      if (process.env.DFX_NETWORK !== "ic") {
+        await agent.fetchRootKey();
+      }
 
-        // Call backend to assign name to principal
-        await backendActor.createUser(name);
+      backendActor = Actor.createActor(backendIDL, {
+        agent,
+        canisterId: backendCanisterId,
+      });
+    };
 
-        // Redirect to main page
-        loginSection.style.display = "none";
-        mainPage.style.display = "block";
-        });
+    const loadPrincipal = async () => {
+      const authClient = await AuthClient.create();
+      const identity = authClient.getIdentity();
+      userPrincipal = identity.getPrincipal()?.toText();
 
-        createOrgButton.addEventListener("click", async () => {
-        const orgName = prompt("Enter the name of the organization:");
-        if (!orgName) {
-            alert("Organization name cannot be empty.");
-            return;
-        }
+      if (userPrincipal) {
+        principalDisplay.textContent = `Your Principal: ${userPrincipal}`;
+      } else {
+        alert("Failed to retrieve principal. Please log in again.");
+      }
+    };
 
-        // Call backend to create organization
-        const orgId = await backendActor.createOrganization(orgName);
-        alert(`Organization created with ID: ${orgId}`);
-        });
+    submitNameButton.addEventListener("click", async () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert("Please enter a valid name.");
+        return;
+      }
 
-        // Initialize actor on page load
-        initBackendActor();
-    </script>
-    </body>
+      // Call backend to assign name to principal
+      await backendActor.createUser(name);
+      nameStatus.style.display = "block";
 
-    </html>
+      // Show main page
+      nameSection.style.display = "none";
+      mainPage.style.display = "block";
+    });
+
+    createOrgButton.addEventListener("click", async () => {
+      const orgName = prompt("Enter the name of the organization:");
+      if (!orgName) {
+        alert("Organization name cannot be empty.");
+        return;
+      }
+
+      // Call backend to create organization
+      const orgId = await backendActor.createOrganization(orgName);
+      alert(`Organization created with ID: ${orgId}`);
+    });
+
+    viewOrgButton.addEventListener("click", () => {
+      // Redirect to organization.html
+      window.location.href = "./organization.html";
+    });
+
+    // Initialize actor and load principal on page load
+    initBackendActor();
+    loadPrincipal();
+  </script>
+</body>
+
+</html>

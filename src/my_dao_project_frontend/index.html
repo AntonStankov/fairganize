@@ -30,6 +30,10 @@
           principalDisplay.textContent = `Connected Principal: ${principal}`;
 
           console.log("Connected Principal:", principal);
+
+       
+          localStorage.setItem("userPrincipal", principal);
+
           console.log("Redirecting to main.html...");
 
           // Redirect to main.html
