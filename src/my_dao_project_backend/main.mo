@@ -569,4 +569,51 @@ actor DAO {
       };
     };
   };
+
+  public shared query ({ caller }) func getMyOrganizations() : async [OrgPublic] {
+    var myOrgs : [OrgPublic] = [];
+    
+    for (org in organizations.vals()) {
+      switch (org.members.get(caller)) {
+        case (?_) {
+          // User is a member of this organization, include it in results
+          let memberArray = Iter.toArray(org.members.keys());
+          let proposalArray = Array.map<Proposal, ProposalPublic>(
+            Iter.toArray(org.proposals.vals()),
+            func (p: Proposal) : ProposalPublic {
+              {
+                id = p.id;
+                title = p.title;
+                description = p.description;
+                deadline = p.deadline;
+                status = p.status;
+                votes_for = p.votes_for;
+                votes_against = p.votes_against;
+                creator = p.creator;
+                voters = Iter.toArray(p.voters.entries());
+                vote_arguments = Iter.toArray(p.vote_arguments.entries());
+                proposalType = p.proposalType;
+              }
+            }
+          );
+
+          let orgPublic : OrgPublic = {
+            id = org.id;
+            name = org.name;
+            owner = org.owner;
+            members = memberArray;
+            proposals = proposalArray;
+            quorum = org.quorum;
+          };
+          
+          myOrgs := Array.append(myOrgs, [orgPublic]);
+        };
+        case (null) {
+          // User is not a member of this organization, skip it
+        };
+      };
+    };
+    
+    return myOrgs;
+  };
 };
