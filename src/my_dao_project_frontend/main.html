@@ -109,8 +109,52 @@
       }
     };
 
+    const fetchUserOrganizations = async () => {
+      try {
+        if (!userPrincipal) {
+          throw new Error("User principal is not defined.");
+        }
+
+        // Fetch the list of organizations the user is part of
+        const organizations = await backendActor.getMyOrganizations();
+
+        // Log the organizations for debugging
+        console.log("User organizations:", organizations);
+
+        // Get the container for displaying organizations
+        const orgListContainer = document.createElement("ul");
+        orgListContainer.id = "orgList";
+
+        // Clear any existing content in the container
+        mainPage.appendChild(orgListContainer);
+        orgListContainer.innerHTML = "";
+
+        // Populate the list with organization names
+        if (Array.isArray(organizations) && organizations.length > 0) {
+          organizations.forEach((org) => {
+            const listItem = document.createElement("li");
+            listItem.textContent = org.name; // Each organization has a `name` property
+            orgListContainer.appendChild(listItem);
+          });
+        } else {
+          const noOrgMessage = document.createElement("p");
+          noOrgMessage.textContent = "You are not part of any organizations.";
+          orgListContainer.appendChild(noOrgMessage);
+        }
+      } catch (error) {
+        console.error("Error fetching user organizations:", error);
+        alert("An error occurred while fetching your organizations. Please try again.");
+      }
+    };
+
     // Call checkUserName after loading principal
-    loadPrincipal().then(checkUserName);
+    loadPrincipal().then(() => {
+      checkUserName().then(() => {
+        if (mainPage.style.display === "block") {
+          fetchUserOrganizations();
+        }
+      });
+    });
 
     submitNameButton.addEventListener("click", async () => {
       const name = nameInput.value.trim();
@@ -119,13 +163,26 @@
         return;
       }
 
-      // Call backend to assign name to principal
-      await backendActor.createUser(name);
-      nameStatus.style.display = "block";
+      try {
+        // Call backend to assign name to principal
+        const result = await backendActor.createUser(name);
 
-      // Show main page
-      nameSection.style.display = "none";
-      mainPage.style.display = "block";
+        // Check if the backend successfully saved the name
+        if (result) {
+          nameStatus.style.display = "block";
+          nameStatus.textContent = "Name assigned successfully!";
+          
+          // Show main page
+          nameSection.style.display = "none";
+          mainPage.style.display = "block";
+          principalDisplay.textContent = `Welcome, ${name}!`;
+        } else {
+          throw new Error("Failed to save name in the backend.");
+        }
+      } catch (error) {
+        console.error("Error assigning name:", error);
+        alert("An error occurred while assigning your name. Please try again.");
+      }
     });
 
     createOrgButton.addEventListener("click", async () => {
