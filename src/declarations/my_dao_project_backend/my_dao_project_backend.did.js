@@ -1,9 +1,21 @@
 export const idlFactory = ({ IDL }) => {
   const Time = IDL.Int;
   const User = IDL.Record({ 'principal' : IDL.Principal, 'name' : IDL.Text });
+  const BlogPost = IDL.Record({
+    'id' : IDL.Nat,
+    'title' : IDL.Text,
+    'content' : IDL.Text,
+    'orgId' : IDL.Nat,
+    'author' : IDL.Principal,
+    'timestamp' : Time,
+  });
   const ProposalType = IDL.Variant({
+    'inviteMember' : IDL.Principal,
+    'changeName' : IDL.Text,
     'removeMember' : IDL.Principal,
+    'publishBlogPost' : BlogPost,
     'general' : IDL.Null,
+    'changeQuorum' : IDL.Nat,
   });
   const ProposalPublic = IDL.Record({
     'id' : IDL.Nat,
@@ -26,10 +38,32 @@ export const idlFactory = ({ IDL }) => {
     'proposals' : IDL.Vec(ProposalPublic),
     'quorum' : IDL.Nat,
   });
+  const InvitationInfo = IDL.Record({
+    'orgName' : IDL.Text,
+    'orgId' : IDL.Nat,
+    'invitationId' : IDL.Text,
+    'expiration' : Time,
+  });
   return IDL.Service({
+    'acceptInvitation' : IDL.Func([IDL.Text], [IDL.Text], []),
     'addMember' : IDL.Func([IDL.Nat, IDL.Principal], [IDL.Text], []),
+    'createBlogPostProposal' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, Time],
+        [IDL.Nat],
+        [],
+      ),
+    'createInvitationProposal' : IDL.Func(
+        [IDL.Nat, IDL.Principal, IDL.Text, Time],
+        [IDL.Nat],
+        [],
+      ),
     'createMemberRemovalProposal' : IDL.Func(
         [IDL.Nat, IDL.Principal, IDL.Text, Time],
+        [IDL.Nat],
+        [],
+      ),
+    'createNameChangeProposal' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, Time],
         [IDL.Nat],
         [],
       ),
@@ -39,16 +73,35 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Nat],
         [],
       ),
+    'createQuorumChangeProposal' : IDL.Func(
+        [IDL.Nat, IDL.Nat, IDL.Text, Time],
+        [IDL.Nat],
+        [],
+      ),
     'createUser' : IDL.Func([IDL.Text], [User], []),
     'createUserForTesting' : IDL.Func([IDL.Text, IDL.Principal], [User], []),
     'finalizeProposal' : IDL.Func([IDL.Nat, IDL.Nat], [IDL.Text], []),
+    'generateInvitationLink' : IDL.Func(
+        [IDL.Nat, IDL.Nat, IDL.Principal],
+        [IDL.Opt(IDL.Text)],
+        [],
+      ),
     'getAllOrganizations' : IDL.Func([], [IDL.Vec(OrgPublic)], ['query']),
+    'getBlogPost' : IDL.Func(
+        [IDL.Nat, IDL.Nat],
+        [IDL.Opt(BlogPost)],
+        ['query'],
+      ),
+    'getBlogPosts' : IDL.Func([IDL.Nat], [IDL.Vec(BlogPost)], ['query']),
+    'getMyInvitations' : IDL.Func([], [IDL.Vec(InvitationInfo)], ['query']),
+    'getMyOrganizations' : IDL.Func([], [IDL.Vec(OrgPublic)], ['query']),
     'getOrganization' : IDL.Func([IDL.Nat], [IDL.Opt(OrgPublic)], ['query']),
     'getUserByPrincipal' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(User)],
         ['query'],
       ),
+    'respondToInvitation' : IDL.Func([IDL.Text, IDL.Bool], [IDL.Text], []),
     'voteOnProposal' : IDL.Func(
         [IDL.Nat, IDL.Nat, IDL.Bool, IDL.Text],
         [IDL.Text],

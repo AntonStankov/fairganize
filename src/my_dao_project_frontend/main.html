@@ -28,6 +28,7 @@
     import { Actor, HttpAgent } from "@dfinity/agent";
     import { idlFactory as backendIDL, canisterId as backendCanisterId } from "declarations/my_dao_project_backend";
     import { AuthClient } from "@dfinity/auth-client";
+    import { Principal } from "@dfinity/principal";
 
     const nameInput = document.getElementById("nameInput");
     const submitNameButton = document.getElementById("submitNameButton");
@@ -68,6 +69,49 @@
       }
     };
 
+    const checkUserName = async () => {
+      try {
+        if (!userPrincipal) {
+          throw new Error("User principal is not defined.");
+        }
+
+        // Convert the principal string to a Principal object
+        const principalObj = Principal.fromText(userPrincipal);
+
+        // Pass the Principal object to the backend
+        const users = await backendActor.getUserByPrincipal(principalObj);
+
+        // Log the users array for debugging
+        console.log("Retrieved users:", users);
+
+        // Check if the users array is valid and not empty
+        if (Array.isArray(users) && users.length > 0) {
+          const user = users[0];
+
+          // Check if the user and user.name are valid
+          if (user && user.name) {
+            nameSection.style.display = "none";
+            mainPage.style.display = "block";
+            principalDisplay.textContent = `Welcome back, ${user.name}!`;
+          } else {
+            console.warn("User or user.name is invalid:", user);
+            nameSection.style.display = "block";
+            mainPage.style.display = "none";
+          }
+        } else {
+          console.warn("No users found for the given principal:", userPrincipal);
+          nameSection.style.display = "block";
+          mainPage.style.display = "none";
+        }
+      } catch (error) {
+        console.error("Error checking user name:", error);
+        alert("An error occurred while checking the user name. Please try again.");
+      }
+    };
+
+    // Call checkUserName after loading principal
+    loadPrincipal().then(checkUserName);
+
     submitNameButton.addEventListener("click", async () => {
       const name = nameInput.value.trim();
       if (!name) {
@@ -97,13 +141,12 @@
     });
 
     viewOrgButton.addEventListener("click", () => {
-      // Redirect to organization.html
-      window.location.href = "./organization.html";
+      // Redirect to organizations.html
+      window.location.href = "./organizations.html";
     });
 
     // Initialize actor and load principal on page load
     initBackendActor();
-    loadPrincipal();
   </script>
 </body>
 

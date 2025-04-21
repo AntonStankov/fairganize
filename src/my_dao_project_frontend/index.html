@@ -19,6 +19,35 @@
     const connectButton = document.getElementById("connectButton");
     const principalDisplay = document.getElementById("principalDisplay");
 
+    const developerPrincipal = "2vxsx-fae"; // Set this to your actual developer principal
+
+    const checkAuthentication = async () => {
+      const authClient = await AuthClient.create();
+      const identity = authClient.getIdentity();
+      const userPrincipal = identity.getPrincipal()?.toText();
+
+      console.log("User Principal:", userPrincipal);
+      console.log("Developer Principal:", developerPrincipal);
+
+      // Redirect to main.html if the user is authenticated and not the developer
+      if (userPrincipal && userPrincipal !== developerPrincipal) {
+        console.log("Redirecting to main.html...");
+        window.location.href = "./main.html";
+      } else if (userPrincipal === developerPrincipal) {
+        console.log("Developer principal detected. Skipping redirection.");
+        principalDisplay.textContent = `Developer Principal: ${userPrincipal}`;
+      } else {
+        // If not authenticated, show a message or redirect to a login page
+        document.body.innerHTML = `
+          <h1>Welcome to Fairganize</h1>
+          <p>Please log in to continue.</p>
+        `;
+      }
+    };
+
+    // Check authentication on page load
+    checkAuthentication();
+
     connectButton.addEventListener("click", async () => {
       const authClient = await AuthClient.create();
 
@@ -31,7 +60,6 @@
 
           console.log("Connected Principal:", principal);
 
-       
           localStorage.setItem("userPrincipal", principal);
 
           console.log("Redirecting to main.html...");

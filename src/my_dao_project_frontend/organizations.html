@@ -16,64 +16,51 @@
   <script type="module">
     import { Actor, HttpAgent } from "@dfinity/agent";
     import { idlFactory as backendIDL, canisterId as backendCanisterId } from "declarations/my_dao_project_backend";
-    import { AuthClient } from "@dfinity/auth-client";
 
     const organizationList = document.getElementById("organizationList");
     const backButton = document.getElementById("backButton");
 
-    let backendActor;
-
-    // Initialize backend actor with authenticated identity
+    // Initialize backend actor
     const initBackendActor = async () => {
-      const authClient = await AuthClient.create();
-      const identity = authClient.getIdentity();
+      const agent = new HttpAgent();
 
-      const agent = new HttpAgent({ identity });
-
-      // Explicitly fetch the root key for the local replica
-      try {
-        if (window.location.hostname.includes("localhost")) {
-          await agent.fetchRootKey();
-        }
-      } catch (error) {
-        console.error("Failed to fetch root key:", error);
+      // Disable certificate verification for local replica
+      if (process.env.DFX_NETWORK !== "ic") {
+        await agent.fetchRootKey();
       }
 
-      backendActor = Actor.createActor(backendIDL, {
+      return Actor.createActor(backendIDL, {
         agent,
         canisterId: backendCanisterId,
       });
     };
 
     const loadOrganizations = async () => {
-      if (!backendActor) {
-        alert("Backend not initialized.");
-        return;
-      }
-
       try {
+        const backendActor = await initBackendActor();
+
+        // Fetch all organizations
         const organizations = await backendActor.getAllOrganizations();
+
+        // Populate the organization list
         organizations.forEach((org) => {
           const listItem = document.createElement("li");
-          listItem.textContent = `ID: ${org.id}, Name: ${org.name}, Owner: ${org.owner}`;
+          listItem.textContent = org.name;
           organizationList.appendChild(listItem);
         });
       } catch (error) {
-        console.error("Failed to load organizations:", error);
+        console.error("Error loading organizations:", error);
         alert("Failed to load organizations. Please try again.");
       }
     };
 
+    // Redirect back to main.html
     backButton.addEventListener("click", () => {
-      // Redirect back to main.html
       window.location.href = "./main.html";
     });
 
-    // Initialize actor and load organizations on page load
-    (async () => {
-      await initBackendActor();
-      await loadOrganizations();
-    })();
+    // Load organizations on page load
+    loadOrganizations();
   </script>
 </body>
 

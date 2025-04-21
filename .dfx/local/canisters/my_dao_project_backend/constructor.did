@@ -6,7 +6,11 @@ type User =
 type Time = int;
 type ProposalType = 
  variant {
+   changeName: text;
+   changeQuorum: nat;
    general;
+   inviteMember: principal;
+   publishBlogPost: BlogPost;
    removeMember: principal;
  };
 type ProposalPublic = 
@@ -38,16 +42,43 @@ type OrgPublic =
    proposals: vec ProposalPublic;
    quorum: nat;
  };
+type InvitationInfo = 
+ record {
+   expiration: Time;
+   invitationId: text;
+   orgId: nat;
+   orgName: text;
+ };
+type BlogPost = 
+ record {
+   author: principal;
+   content: text;
+   id: nat;
+   orgId: nat;
+   timestamp: Time;
+   title: text;
+ };
 service : {
+  acceptInvitation: (text) -> (text);
   addMember: (nat, principal) -> (text);
+  createBlogPostProposal: (nat, text, text, text, Time) -> (nat);
+  createInvitationProposal: (nat, principal, text, Time) -> (nat);
   createMemberRemovalProposal: (nat, principal, text, Time) -> (nat);
+  createNameChangeProposal: (nat, text, text, Time) -> (nat);
   createOrganization: (text) -> (nat);
   createProposal: (nat, text, text, Time) -> (nat);
+  createQuorumChangeProposal: (nat, nat, text, Time) -> (nat);
   createUser: (text) -> (User);
   createUserForTesting: (text, principal) -> (User);
   finalizeProposal: (nat, nat) -> (text);
+  generateInvitationLink: (nat, nat, principal) -> (opt text);
   getAllOrganizations: () -> (vec OrgPublic) query;
+  getBlogPost: (nat, nat) -> (opt BlogPost) query;
+  getBlogPosts: (nat) -> (vec BlogPost) query;
+  getMyInvitations: () -> (vec InvitationInfo) query;
+  getMyOrganizations: () -> (vec OrgPublic) query;
   getOrganization: (nat) -> (opt OrgPublic) query;
   getUserByPrincipal: (principal) -> (opt User) query;
+  respondToInvitation: (text, bool) -> (text);
   voteOnProposal: (nat, nat, bool, text) -> (text);
 }

@@ -13,7 +13,7 @@ export default defineConfig({
       input: {
         index: resolve(__dirname, 'index.html'),
         main: resolve(__dirname, 'main.html'),
-        organizations: resolve(__dirname, 'organization.html'),
+        organizations: resolve(__dirname, 'organizations.html'),
       },
     },
   },
