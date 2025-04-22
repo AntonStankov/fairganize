@@ -469,9 +469,7 @@ actor DAO {
   };
 
   public shared ({ caller }) func voteOnProposal(principal: Principal, orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
-    // if (not validateCaller(caller, principal)) {
-    //   return "Unauthorized.";
-    // };
+
     
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
@@ -487,7 +485,7 @@ actor DAO {
               return "Voting on this proposal has ended.";
             };
 
-            if (Time.now() > proposal.deadline) { // Compare Time values directly
+            if (Time.now() > proposal.deadline) { 
               return "The voting deadline has passed.";
             };
 
@@ -512,6 +510,89 @@ actor DAO {
               };
 
               org.proposals.put(proposalId, updatedProposal);
+              
+              // Check if all members have voted
+              let totalMembersCount = Iter.size(org.members.entries());
+              let totalVotersCount = Iter.size(voters.entries());
+              
+              if (totalMembersCount == totalVotersCount) {
+                // All members have voted, finalize immediately
+                let totalVotes = updatedProposal.votes_for + updatedProposal.votes_against;
+                let newStatus = if (totalVotes >= org.quorum) {
+                  if (updatedProposal.votes_for > updatedProposal.votes_against) "accepted" else "rejected"
+                } else {
+                  "rejected"
+                };
+
+                // Execute the proposal based on its type
+                switch (updatedProposal.proposalType) {
+                  case (#removeMember(memberToRemove)) {
+                    if (newStatus == "accepted") {
+                      org.members.delete(memberToRemove);
+                    };
+                  };
+                  case (#inviteMember(invitee)) {
+                    // No action needed here as invitation link still needs to be generated and accepted
+                  };
+                  case (#changeQuorum(newQuorum)) {
+                    if (newStatus == "accepted") {
+                      let updatedOrg: Organization = {
+                        id = org.id;
+                        name = org.name;
+                        owner = org.owner;
+                        members = org.members;
+                        proposals = org.proposals;
+                        quorum = newQuorum;
+                      };
+                      organizations.put(orgId, updatedOrg);
+                    };
+                  };
+                  case (#changeName(newName)) {
+                    if (newStatus == "accepted") {
+                      let updatedOrg: Organization = {
+                        id = org.id;
+                        name = newName;
+                        owner = org.owner;
+                        members = org.members;
+                        proposals = org.proposals;
+                        quorum = org.quorum;
+                      };
+                      organizations.put(orgId, updatedOrg);
+                    };
+                  };
+                  case (#publishBlogPost(blogPost)) {
+                    if (newStatus == "accepted") {
+                      let orgBlogPosts = switch (blogPosts.get(blogPost.orgId)) {
+                        case (null) { [] };
+                        case (?posts) { posts };
+                      };
+                      
+                      let updatedPosts = Array.append(orgBlogPosts, [blogPost]);
+                      blogPosts.put(blogPost.orgId, updatedPosts);
+                    };
+                  };
+                  case (#general) {};
+                };
+
+                // Update the proposal status
+                let finalizedProposal = {
+                  id = updatedProposal.id;
+                  title = updatedProposal.title;
+                  description = updatedProposal.description;
+                  votes_for = updatedProposal.votes_for;
+                  votes_against = updatedProposal.votes_against;
+                  creator = updatedProposal.creator;
+                  voters = updatedProposal.voters;
+                  vote_arguments = updatedProposal.vote_arguments;
+                  deadline = updatedProposal.deadline;
+                  status = newStatus;
+                  proposalType = updatedProposal.proposalType;
+                };
+                
+                org.proposals.put(proposalId, finalizedProposal);
+                return "Vote registered and proposal finalized immediately as all members have voted!";
+              };
+              
               return "Vote and argument registered!";
             } else {
               return "You have already voted on this proposal.";
