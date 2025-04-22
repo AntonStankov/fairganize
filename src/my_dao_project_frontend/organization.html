@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Organization Details</title>
 </head>
-
 <body>
   <h1 id="orgName">Organization Details</h1>
   <p id="orgOwner"></p>
@@ -29,8 +27,7 @@
 
   <script type="module">
     import { Actor, HttpAgent } from "@dfinity/agent";
-    import { idlFactory as backendIDL, canisterId as backendCanisterId }
-      from "declarations/my_dao_project_backend";
+    import { idlFactory as backendIDL, canisterId as backendCanisterId } from "declarations/my_dao_project_backend";
     import { Principal } from "@dfinity/principal";
 
     const params = new URLSearchParams(window.location.search);
@@ -42,41 +39,38 @@
 
     async function initBackendActor() {
       const agent = new HttpAgent({ host: "http://localhost:4943" });
+
       // For local dfx dev, fetch the root key so certificates verify
       if (process.env.DFX_NETWORK !== "ic") {
         await agent.fetchRootKey();
       }
-      return Actor.createActor(backendIDL, {
+
+      const actor = Actor.createActor(backendIDL, {
         agent,
         canisterId: backendCanisterId,
       });
+
+      const identity = await agent.getPrincipal();
+      return { actor, identity };
     }
 
     async function loadOrganizationDetails() {
       try {
-        const actor = await initBackendActor();
-        // This returns [] for None, or [OrgPublic] for Some(...)
+        const { actor } = await initBackendActor();
         const optOrg = await actor.getOrganization(Number(orgId));
 
-        // If no org or returned [] → redirect
         if (!Array.isArray(optOrg) || optOrg.length === 0) {
           alert("Organization not found.");
           window.location.href = "./main.html";
           return;
         }
 
-        // Unwrap the single-element array
         const org = optOrg[0];
 
-        // Fill in the fields
-        document.getElementById("orgName").textContent =
-          `Organization: ${org.name}`;
-        document.getElementById("orgOwner").textContent =
-          `Owner: ${Principal.fromUint8Array(org.owner._arr).toText()}`;
-        document.getElementById("orgQuorum").textContent =
-          `Quorum: ${org.quorum}`;
+        document.getElementById("orgName").textContent = `Organization: ${org.name}`;
+        document.getElementById("orgOwner").textContent = `Owner: ${Principal.fromUint8Array(org.owner._arr).toText()}`;
+        document.getElementById("orgQuorum").textContent = `Quorum: ${org.quorum}`;
 
-        // Members
         const membersList = document.getElementById("orgMembers");
         membersList.innerHTML = "";
         if (org.members.length > 0) {
@@ -89,13 +83,12 @@
           membersList.innerHTML = `<li>No members found.</li>`;
         }
 
-        // Proposals
         const proposalsList = document.getElementById("orgProposals");
         proposalsList.innerHTML = "";
         if (org.proposals.length > 0) {
           org.proposals.forEach(p => {
             const li = document.createElement("li");
-            li.textContent = `${p.title} — Type: ${p.type} — Status: ${p.status}`;
+            li.textContent = `${p.title} — Status: ${p.status}`;
             proposalsList.appendChild(li);
           });
         } else {
@@ -166,8 +159,10 @@
     });
 
     document.getElementById("submitProposalBtn").addEventListener("click", async () => {
-      const actor = await initBackendActor();
-      const deadline = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 1 week from now in seconds
+      const { actor, identity } = await initBackendActor();
+      const nowNs = BigInt(Date.now()) * 1000000n; // Convert milliseconds to nanoseconds
+        const weekNs = 7n * 24n * 60n * 60n * 1000000000n; // 1 week in nanoseconds
+        const deadline = nowNs + weekNs;
 
       try {
         if (proposalFormTitle.textContent === "Invite Member") {
@@ -190,7 +185,7 @@
         } else if (proposalFormTitle.textContent === "Change Organization Name") {
           const newName = document.getElementById("newOrgName").value;
           const description = document.getElementById("nameChangeDescription").value;
-          await actor.createNameChangeProposal(orgId, newName, description, deadline);
+          await actor.createNameChangeProposal(identity, Number(orgId), newName, description, deadline);
         }
 
         alert("Proposal created successfully!");
@@ -205,5 +200,4 @@
     loadOrganizationDetails();
   </script>
 </body>
-
 </html>
