@@ -102,17 +102,26 @@ actor DAO {
     Text.hash
   );
 
-  public shared ({ caller }) func createOrganization(name: Text) : async Nat {
+  // Helper function to validate caller
+  private func validateCaller(caller: Principal, principal: Principal) : Bool {
+    return Principal.equal(caller, principal);
+  };
+
+  public shared ({ caller }) func createOrganization(principal: Principal, name: Text) : async Nat {
+    if (not validateCaller(caller, principal)) {
+      return 0; // Unauthorized
+    };
+    
     let id = orgCounter;
     orgCounter += 1;
 
     let members = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
-    members.put(caller, true);
+    members.put(principal, true);
 
     let org: Organization = {
       id = id;
       name = name;
-      owner = caller;
+      owner = principal;
       members = members;
       quorum = 1; // Fixed missing quorum initialization
       proposals = HashMap.HashMap<Nat, Proposal>(0, Nat.equal, func(n: Nat) : Hash.Hash { Nat32.fromNat(n) });
@@ -123,11 +132,15 @@ actor DAO {
     return id; 
   };
 
-  public shared ({ caller }) func addMember(orgId: Nat, newMember: Principal) : async Text {
+  public shared ({ caller }) func addMember(principal: Principal, orgId: Nat, newMember: Principal) : async Text {
+    if (not validateCaller(caller, principal)) {
+      return "Unauthorized.";
+    };
+    
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
       case (?org) {
-        if (org.owner != caller) {
+        if (org.owner != principal) {
           return "Only the organization owner can add members.";
         };
 
@@ -137,11 +150,15 @@ actor DAO {
     };
   };
 
-  public shared ({ caller }) func createProposal(orgId: Nat, title: Text, description: Text, deadline: Time.Time) : async Nat {
+  public shared ({ caller }) func createProposal(principal: Principal, orgId: Nat, title: Text, description: Text, deadline: Time.Time) : async Nat {
+    if (not validateCaller(caller, principal)) {
+      return 0; // Unauthorized
+    };
+    
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
       case (?org) {
-        if (org.members.get(caller) == null) {
+        if (org.members.get(principal) == null) {
           return 0;
         };
 
@@ -152,7 +169,7 @@ actor DAO {
           description = description;
           votes_for = 0;
           votes_against = 0;
-          creator = caller;
+          creator = principal;
           voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
           vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
           deadline = deadline; // Use the provided Time.Time value
@@ -167,15 +184,20 @@ actor DAO {
   };
 
   public shared ({ caller }) func createMemberRemovalProposal(
+    principal: Principal, 
     orgId: Nat, 
     memberToRemove: Principal, 
     description: Text, 
     deadline: Time.Time
   ) : async Nat {
+    if (not validateCaller(caller, principal)) {
+      return 0; // Unauthorized
+    };
+    
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
       case (?org) {
-        if (org.members.get(caller) == null) {
+        if (org.members.get(principal) == null) {
           return 0;
         };
 
@@ -190,7 +212,7 @@ actor DAO {
           description = description;
           votes_for = 0;
           votes_against = 0;
-          creator = caller;
+          creator = principal;
           voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
           vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
           deadline = deadline;
@@ -205,15 +227,20 @@ actor DAO {
   };
 
   public shared ({ caller }) func createInvitationProposal(
+    principal: Principal,
     orgId: Nat,
     invitee: Principal,
     description: Text,
     deadline: Time.Time
   ) : async Nat {
+    if (not validateCaller(caller, principal)) {
+      return 0; // Unauthorized
+    };
+    
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
       case (?org) {
-        if (org.members.get(caller) == null) {
+        if (org.members.get(principal) == null) {
           return 0;
         };
 
@@ -224,7 +251,7 @@ actor DAO {
           description = description;
           votes_for = 0;
           votes_against = 0;
-          creator = caller;
+          creator = principal;
           voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
           vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
           deadline = deadline;
@@ -239,15 +266,20 @@ actor DAO {
   };
 
   public shared ({ caller }) func createQuorumChangeProposal(
+    principal: Principal,
     orgId: Nat,
     newQuorum: Nat,
     description: Text,
     deadline: Time.Time
   ) : async Nat {
+    if (not validateCaller(caller, principal)) {
+      return 0; // Unauthorized
+    };
+    
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
       case (?org) {
-        if (org.members.get(caller) == null) {
+        if (org.members.get(principal) == null) {
           return 0;
         };
         
@@ -262,7 +294,7 @@ actor DAO {
           description = description;
           votes_for = 0;
           votes_against = 0;
-          creator = caller;
+          creator = principal;
           voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
           vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
           deadline = deadline;
@@ -277,15 +309,20 @@ actor DAO {
   };
 
   public shared ({ caller }) func createNameChangeProposal(
+    principal: Principal,
     orgId: Nat,
     newName: Text,
     description: Text,
     deadline: Time.Time
   ) : async Nat {
+    if (not validateCaller(caller, principal)) {
+      return 0; // Unauthorized
+    };
+    
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
       case (?org) {
-        if (org.members.get(caller) == null) {
+        if (org.members.get(principal) == null) {
           return 0;
         };
         
@@ -300,7 +337,7 @@ actor DAO {
           description = description;
           votes_for = 0;
           votes_against = 0;
-          creator = caller;
+          creator = principal;
           voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
           vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
           deadline = deadline;
@@ -315,16 +352,21 @@ actor DAO {
   };
 
   public shared ({ caller }) func createBlogPostProposal(
+    principal: Principal,
     orgId: Nat,
     title: Text,
     content: Text,
     description: Text,
     deadline: Time.Time
   ) : async Nat {
+    if (not validateCaller(caller, principal)) {
+      return 0; // Unauthorized
+    };
+    
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
       case (?org) {
-        if (org.members.get(caller) == null) {
+        if (org.members.get(principal) == null) {
           return 0;
         };
         
@@ -335,7 +377,7 @@ actor DAO {
           };
           title = title;
           content = content;
-          author = caller;
+          author = principal;
           timestamp = Time.now();
           orgId = orgId;
         };
@@ -347,7 +389,7 @@ actor DAO {
           description = description;
           votes_for = 0;
           votes_against = 0;
-          creator = caller;
+          creator = principal;
           voters = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
           vote_arguments = HashMap.HashMap<Principal, Text>(0, Principal.equal, Principal.hash);
           deadline = deadline;
@@ -428,11 +470,15 @@ actor DAO {
     };
   };
 
-  public shared ({ caller }) func voteOnProposal(orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
+  public shared ({ caller }) func voteOnProposal(principal: Principal, orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
+    if (not validateCaller(caller, principal)) {
+      return "Unauthorized.";
+    };
+    
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
       case (?org) {
-        if (org.members.get(caller) == null) {
+        if (org.members.get(principal) == null) {
           return "Only members can vote.";
         };
 
@@ -447,11 +493,11 @@ actor DAO {
               return "The voting deadline has passed.";
             };
 
-            if (proposal.voters.get(caller) == null) {
+            if (proposal.voters.get(principal) == null) {
               let voters = proposal.voters;
               let vote_arguments = proposal.vote_arguments;
-              voters.put(caller, voteFor);
-              vote_arguments.put(caller, argument);
+              voters.put(principal, voteFor);
+              vote_arguments.put(principal, argument);
 
               let updatedProposal = {
                 id = proposal.id;
@@ -478,7 +524,11 @@ actor DAO {
     };
   };
 
-  public shared ({ caller }) func finalizeProposal(orgId: Nat, proposalId: Nat) : async Text {
+  public shared ({ caller }) func finalizeProposal(principal: Principal, orgId: Nat, proposalId: Nat) : async Text {
+    if (not validateCaller(caller, principal)) {
+      return "Unauthorized.";
+    };
+    
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
       case (?org) {
@@ -648,25 +698,12 @@ actor DAO {
     });
   };
 
-  // UserManager integration
-  public shared ({ caller }) func createUser(name: Text) : async User.User {
-    switch (users.get(caller)) {
-      case (?existingUser) {
-        return existingUser;
-      };
-      case (null) {
-        let newUser = User.createUser(name, caller);
-        users.put(caller, newUser);
-        return newUser;
-      };
-    };
-  };
-
   public query func getUserByPrincipal(principal: Principal) : async ?User.User {
     users.get(principal)
   };
 
   public shared func createUserForTesting(name: Text, principal: Principal) : async User.User {
+    // This method doesn't need validation as it's explicitly for testing
     switch (users.get(principal)) {
       case (?existingUser) {
         return existingUser;
@@ -687,11 +724,15 @@ actor DAO {
     expiration: Time.Time;
   };
 
-  public shared query ({ caller }) func getMyInvitations() : async [InvitationInfo] {
+  public shared query ({ caller }) func getMyInvitations(principal: Principal) : async [InvitationInfo] {
+    if (not validateCaller(caller, principal)) {
+      return []; // Return empty array if unauthorized
+    };
+    
     var myInvitations : [InvitationInfo] = [];
     
     for ((id, invitation) in invitations.entries()) {
-      if (invitation.invitee == caller) {
+      if (invitation.invitee == principal) {
         switch (organizations.get(invitation.orgId)) {
           case (?org) {
             let invitationInfo : InvitationInfo = {
@@ -710,11 +751,15 @@ actor DAO {
     return myInvitations;
   };
 
-  public shared ({ caller }) func respondToInvitation(invitationId: Text, accept: Bool) : async Text {
+  public shared ({ caller }) func respondToInvitation(principal: Principal, invitationId: Text, accept: Bool) : async Text {
+    if (not validateCaller(caller, principal)) {
+      return "Unauthorized.";
+    };
+    
     switch (invitations.get(invitationId)) {
       case (null) { return "Invalid invitation link."; };
       case (?invitation) {
-        if (caller != invitation.invitee) {
+        if (principal != invitation.invitee) {
           return "This invitation is not for you.";
         };
 
@@ -731,7 +776,7 @@ actor DAO {
           switch (organizations.get(invitation.orgId)) {
             case (null) { return "Organization not found."; };
             case (?org) {
-              org.members.put(caller, true);
+              org.members.put(principal, true);
               return "You have joined the organization!";
             };
           };
@@ -743,11 +788,15 @@ actor DAO {
     };
   };
 
-  public shared query ({ caller }) func getMyOrganizations() : async [OrgPublic] {
+  public shared query ({ caller }) func getMyOrganizations(principal: Principal) : async [OrgPublic] {
+    if (not validateCaller(caller, principal)) {
+      return []; // Return empty array if unauthorized
+    };
+    
     var myOrgs : [OrgPublic] = [];
     
     for (org in organizations.vals()) {
-      switch (org.members.get(caller)) {
+      switch (org.members.get(principal)) {
         case (?_) {
           // User is a member of this organization, include it in results
           let memberArray = Iter.toArray(org.members.keys());
