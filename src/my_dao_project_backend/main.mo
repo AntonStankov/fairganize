@@ -108,9 +108,9 @@ actor DAO {
   };
 
   public shared ({ caller }) func createOrganization(principal: Principal, name: Text) : async Nat {
-    if (not validateCaller(caller, principal)) {
-      return 0; // Unauthorized
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return 0; // Unauthorized
+    // };
     
     let id = orgCounter;
     orgCounter += 1;
@@ -133,9 +133,9 @@ actor DAO {
   };
 
   public shared ({ caller }) func addMember(principal: Principal, orgId: Nat, newMember: Principal) : async Text {
-    if (not validateCaller(caller, principal)) {
-      return "Unauthorized.";
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return "Unauthorized.";
+    // };
     
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
@@ -151,9 +151,9 @@ actor DAO {
   };
 
   public shared ({ caller }) func createProposal(principal: Principal, orgId: Nat, title: Text, description: Text, deadline: Time.Time) : async Nat {
-    if (not validateCaller(caller, principal)) {
-      return 0; // Unauthorized
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return 0; // Unauthorized
+    // };
     
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
@@ -190,9 +190,9 @@ actor DAO {
     description: Text, 
     deadline: Time.Time
   ) : async Nat {
-    if (not validateCaller(caller, principal)) {
-      return 0; // Unauthorized
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return 0; // Unauthorized
+    // };
     
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
@@ -233,9 +233,9 @@ actor DAO {
     description: Text,
     deadline: Time.Time
   ) : async Nat {
-    if (not validateCaller(caller, principal)) {
-      return 0; // Unauthorized
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return 0; // Unauthorized
+    // };
     
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
@@ -272,9 +272,9 @@ actor DAO {
     description: Text,
     deadline: Time.Time
   ) : async Nat {
-    if (not validateCaller(caller, principal)) {
-      return 0; // Unauthorized
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return 0; // Unauthorized
+    // };
     
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
@@ -315,9 +315,9 @@ actor DAO {
     description: Text,
     deadline: Time.Time
   ) : async Nat {
-    if (not validateCaller(caller, principal)) {
-      return 0; // Unauthorized
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return 0; // Unauthorized
+    // };
     
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
@@ -359,9 +359,9 @@ actor DAO {
     description: Text,
     deadline: Time.Time
   ) : async Nat {
-    if (not validateCaller(caller, principal)) {
-      return 0; // Unauthorized
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return 0; // Unauthorized
+    // };
     
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
@@ -415,6 +415,7 @@ actor DAO {
     proposalId: Nat,
     invitee: Principal
   ) : async ?Text {
+    // No validation needed here
     switch (organizations.get(orgId)) {
       case (null) { return null; };
       case (?org) {
@@ -446,6 +447,7 @@ actor DAO {
   };
 
   public shared ({ caller }) func acceptInvitation(invitationId: Text) : async Text {
+    // No validation needed here
     switch (invitations.get(invitationId)) {
       case (null) { return "Invalid invitation link."; };
       case (?invitation) {
@@ -471,9 +473,9 @@ actor DAO {
   };
 
   public shared ({ caller }) func voteOnProposal(principal: Principal, orgId: Nat, proposalId: Nat, voteFor: Bool, argument: Text) : async Text {
-    if (not validateCaller(caller, principal)) {
-      return "Unauthorized.";
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return "Unauthorized.";
+    // };
     
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
@@ -525,9 +527,9 @@ actor DAO {
   };
 
   public shared ({ caller }) func finalizeProposal(principal: Principal, orgId: Nat, proposalId: Nat) : async Text {
-    if (not validateCaller(caller, principal)) {
-      return "Unauthorized.";
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return "Unauthorized.";
+    // };
     
     switch (organizations.get(orgId)) {
       case (null) { return "Organization not found."; };
@@ -703,14 +705,14 @@ actor DAO {
   };
 
   public shared func createUserForTesting(name: Text, principal: Principal) : async User.User {
-    // This method doesn't need validation as it's explicitly for testing
+    // Ensure the user is created and stored properly
     switch (users.get(principal)) {
       case (?existingUser) {
-        return existingUser;
+        return existingUser; // Return the existing user if already created
       };
       case (null) {
         let newUser = User.createUser(name, principal);
-        users.put(principal, newUser);
+        users.put(principal, newUser); // Store the new user in the HashMap
         return newUser;
       };
     };
@@ -725,9 +727,9 @@ actor DAO {
   };
 
   public shared query ({ caller }) func getMyInvitations(principal: Principal) : async [InvitationInfo] {
-    if (not validateCaller(caller, principal)) {
-      return []; // Return empty array if unauthorized
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return []; // Return empty array if unauthorized
+    // };
     
     var myInvitations : [InvitationInfo] = [];
     
@@ -752,9 +754,9 @@ actor DAO {
   };
 
   public shared ({ caller }) func respondToInvitation(principal: Principal, invitationId: Text, accept: Bool) : async Text {
-    if (not validateCaller(caller, principal)) {
-      return "Unauthorized.";
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return "Unauthorized.";
+    // };
     
     switch (invitations.get(invitationId)) {
       case (null) { return "Invalid invitation link."; };
@@ -789,9 +791,9 @@ actor DAO {
   };
 
   public shared query ({ caller }) func getMyOrganizations(principal: Principal) : async [OrgPublic] {
-    if (not validateCaller(caller, principal)) {
-      return []; // Return empty array if unauthorized
-    };
+    // if (not validateCaller(caller, principal)) {
+    //   return []; // Return empty array if unauthorized
+    // };
     
     var myOrgs : [OrgPublic] = [];
     

@@ -47,32 +47,34 @@ export type Time = bigint;
 export interface User { 'principal' : Principal, 'name' : string }
 export interface _SERVICE {
   'acceptInvitation' : ActorMethod<[string], string>,
-  'addMember' : ActorMethod<[bigint, Principal], string>,
+  'addMember' : ActorMethod<[Principal, bigint, Principal], string>,
   'createBlogPostProposal' : ActorMethod<
-    [bigint, string, string, string, Time],
+    [Principal, bigint, string, string, string, Time],
     bigint
   >,
   'createInvitationProposal' : ActorMethod<
-    [bigint, Principal, string, Time],
+    [Principal, bigint, Principal, string, Time],
     bigint
   >,
   'createMemberRemovalProposal' : ActorMethod<
-    [bigint, Principal, string, Time],
+    [Principal, bigint, Principal, string, Time],
     bigint
   >,
   'createNameChangeProposal' : ActorMethod<
-    [bigint, string, string, Time],
+    [Principal, bigint, string, string, Time],
     bigint
   >,
-  'createOrganization' : ActorMethod<[string], bigint>,
-  'createProposal' : ActorMethod<[bigint, string, string, Time], bigint>,
+  'createOrganization' : ActorMethod<[Principal, string], bigint>,
+  'createProposal' : ActorMethod<
+    [Principal, bigint, string, string, Time],
+    bigint
+  >,
   'createQuorumChangeProposal' : ActorMethod<
-    [bigint, bigint, string, Time],
+    [Principal, bigint, bigint, string, Time],
     bigint
   >,
-  'createUser' : ActorMethod<[string], User>,
   'createUserForTesting' : ActorMethod<[string, Principal], User>,
-  'finalizeProposal' : ActorMethod<[bigint, bigint], string>,
+  'finalizeProposal' : ActorMethod<[Principal, bigint, bigint], string>,
   'generateInvitationLink' : ActorMethod<
     [bigint, bigint, Principal],
     [] | [string]
@@ -80,12 +82,15 @@ export interface _SERVICE {
   'getAllOrganizations' : ActorMethod<[], Array<OrgPublic>>,
   'getBlogPost' : ActorMethod<[bigint, bigint], [] | [BlogPost]>,
   'getBlogPosts' : ActorMethod<[bigint], Array<BlogPost>>,
-  'getMyInvitations' : ActorMethod<[], Array<InvitationInfo>>,
-  'getMyOrganizations' : ActorMethod<[], Array<OrgPublic>>,
+  'getMyInvitations' : ActorMethod<[Principal], Array<InvitationInfo>>,
+  'getMyOrganizations' : ActorMethod<[Principal], Array<OrgPublic>>,
   'getOrganization' : ActorMethod<[bigint], [] | [OrgPublic]>,
   'getUserByPrincipal' : ActorMethod<[Principal], [] | [User]>,
-  'respondToInvitation' : ActorMethod<[string, boolean], string>,
-  'voteOnProposal' : ActorMethod<[bigint, bigint, boolean, string], string>,
+  'respondToInvitation' : ActorMethod<[Principal, string, boolean], string>,
+  'voteOnProposal' : ActorMethod<
+    [Principal, bigint, bigint, boolean, string],
+    string
+  >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

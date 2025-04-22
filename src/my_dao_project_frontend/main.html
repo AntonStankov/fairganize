@@ -75,33 +75,36 @@
           throw new Error("User principal is not defined.");
         }
 
-        // Convert the principal string to a Principal object
+        // Convert userPrincipal (Text) to Principal object
         const principalObj = Principal.fromText(userPrincipal);
 
         // Pass the Principal object to the backend
-        const users = await backendActor.getUserByPrincipal(principalObj);
+        const userOpt = await backendActor.getUserByPrincipal(principalObj);
 
-        // Log the users array for debugging
-        console.log("Retrieved users:", users);
-
-        // Check if the users array is valid and not empty
-        if (Array.isArray(users) && users.length > 0) {
-          const user = users[0];
-
-          // Check if the user and user.name are valid
+        // Check if the returned value is not null
+        if (userOpt) {
+          const user = userOpt[0]; // Extract the user record from the optional value
           if (user && user.name) {
             nameSection.style.display = "none";
             mainPage.style.display = "block";
             principalDisplay.textContent = `Welcome back, ${user.name}!`;
-          } else {
-            console.warn("User or user.name is invalid:", user);
-            nameSection.style.display = "block";
-            mainPage.style.display = "none";
+            return;
           }
+        }
+
+        // If no user exists, prompt to create one
+        const name = prompt("It seems you don't have a name set. Please enter your name:");
+        if (!name) {
+          alert("Name is required to proceed.");
+          return;
+        }
+        const newUser = await backendActor.createUserForTesting(name, principalObj);
+        if (newUser && newUser.name) {
+          nameSection.style.display = "none";
+          mainPage.style.display = "block";
+          principalDisplay.textContent = `Welcome, ${newUser.name}!`;
         } else {
-          console.warn("No users found for the given principal:", userPrincipal);
-          nameSection.style.display = "block";
-          mainPage.style.display = "none";
+          throw new Error("Failed to create a new user.");
         }
       } catch (error) {
         console.error("Error checking user name:", error);
@@ -110,42 +113,54 @@
     };
 
     const fetchUserOrganizations = async () => {
-      try {
-        if (!userPrincipal) {
-          throw new Error("User principal is not defined.");
-        }
-
-        // Fetch the list of organizations the user is part of
-        const organizations = await backendActor.getMyOrganizations();
-
-        // Log the organizations for debugging
-        console.log("User organizations:", organizations);
-
-        // Get the container for displaying organizations
-        const orgListContainer = document.createElement("ul");
-        orgListContainer.id = "orgList";
-
-        // Clear any existing content in the container
-        mainPage.appendChild(orgListContainer);
-        orgListContainer.innerHTML = "";
-
-        // Populate the list with organization names
-        if (Array.isArray(organizations) && organizations.length > 0) {
-          organizations.forEach((org) => {
-            const listItem = document.createElement("li");
-            listItem.textContent = org.name; // Each organization has a `name` property
-            orgListContainer.appendChild(listItem);
-          });
-        } else {
-          const noOrgMessage = document.createElement("p");
-          noOrgMessage.textContent = "You are not part of any organizations.";
-          orgListContainer.appendChild(noOrgMessage);
-        }
-      } catch (error) {
-        console.error("Error fetching user organizations:", error);
-        alert("An error occurred while fetching your organizations. Please try again.");
+    try {
+      if (!userPrincipal) {
+        throw new Error("User principal is not defined.");
       }
-    };
+
+      // Convert userPrincipal (Text) to Principal object
+      const principalObj = Principal.fromText(userPrincipal);
+      console.log("Sending principal to backend:", userPrincipal);
+
+      // Pass the Principal object to the backend
+      const organizations = await backendActor.getMyOrganizations(principalObj);
+
+      // Debugging: Log the raw response for inspection
+      console.log("Raw response from getMyOrganizations:", organizations);
+
+      // Ensure the response is an array (vec in Candid)
+      if (!Array.isArray(organizations)) {
+        throw new Error("Invalid response format from getMyOrganizations.");
+      }
+
+      // Get the container for displaying organizations
+      const orgListContainer = document.getElementById("orgList") || document.createElement("ul");
+      orgListContainer.id = "orgList";
+
+      // Clear any existing content in the container
+      orgListContainer.innerHTML = "";
+      mainPage.appendChild(orgListContainer);
+
+      // Populate the list with organization names  
+      if (organizations.length > 0) {
+        organizations.forEach((orgRecord) => {
+          // Access the organization name from the record
+          const orgName = orgRecord.name;  // Each organization has a `name` property
+          const listItem = document.createElement("li");
+          listItem.textContent = orgName;
+          orgListContainer.appendChild(listItem);
+        });
+      } else {
+        const noOrgMessage = document.createElement("p");
+        noOrgMessage.textContent = "You are not part of any organizations.";
+        orgListContainer.appendChild(noOrgMessage);
+      }
+    } catch (error) {
+      console.error("Error fetching user organizations:", error);
+      alert("An error occurred while fetching your organizations. Please try again.");
+    }
+  };
+
 
     // Call checkUserName after loading principal
     loadPrincipal().then(() => {
@@ -164,8 +179,11 @@
       }
 
       try {
-        // Call backend to assign name to principal
-        const result = await backendActor.createUser(name);
+        // Convert userPrincipal (Text) to Principal object
+        const principalObj = Principal.fromText(userPrincipal);
+
+        // Pass the Principal object to the backend
+        const result = await backendActor.createUserForTesting(name, principalObj);
 
         // Check if the backend successfully saved the name
         if (result) {
@@ -185,6 +203,7 @@
       }
     });
 
+    // Update function calls to pass principal as text
     createOrgButton.addEventListener("click", async () => {
       const orgName = prompt("Enter the name of the organization:");
       if (!orgName) {
@@ -192,9 +211,17 @@
         return;
       }
 
-      // Call backend to create organization
-      const orgId = await backendActor.createOrganization(orgName);
-      alert(`Organization created with ID: ${orgId}`);
+      try {
+        // Convert userPrincipal (Text) to Principal object
+        const principalObj = Principal.fromText(userPrincipal);
+
+        // Pass the Principal object to the backend
+        const orgId = await backendActor.createOrganization(principalObj, orgName);
+        alert(`Organization created with ID: ${orgId}`);
+      } catch (error) {
+        console.error("Error creating organization:", error);
+        alert("An error occurred while creating the organization. Please try again.");
+      }
     });
 
     viewOrgButton.addEventListener("click", () => {

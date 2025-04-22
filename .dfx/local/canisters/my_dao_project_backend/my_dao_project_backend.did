@@ -60,25 +60,25 @@ type BlogPost =
  };
 service : {
   acceptInvitation: (text) -> (text);
-  addMember: (nat, principal) -> (text);
-  createBlogPostProposal: (nat, text, text, text, Time) -> (nat);
-  createInvitationProposal: (nat, principal, text, Time) -> (nat);
-  createMemberRemovalProposal: (nat, principal, text, Time) -> (nat);
-  createNameChangeProposal: (nat, text, text, Time) -> (nat);
-  createOrganization: (text) -> (nat);
-  createProposal: (nat, text, text, Time) -> (nat);
-  createQuorumChangeProposal: (nat, nat, text, Time) -> (nat);
-  createUser: (text) -> (User);
+  addMember: (principal, nat, principal) -> (text);
+  createBlogPostProposal: (principal, nat, text, text, text, Time) -> (nat);
+  createInvitationProposal: (principal, nat, principal, text, Time) -> (nat);
+  createMemberRemovalProposal: (principal, nat, principal, text, Time) ->
+   (nat);
+  createNameChangeProposal: (principal, nat, text, text, Time) -> (nat);
+  createOrganization: (principal, text) -> (nat);
+  createProposal: (principal, nat, text, text, Time) -> (nat);
+  createQuorumChangeProposal: (principal, nat, nat, text, Time) -> (nat);
   createUserForTesting: (text, principal) -> (User);
-  finalizeProposal: (nat, nat) -> (text);
+  finalizeProposal: (principal, nat, nat) -> (text);
   generateInvitationLink: (nat, nat, principal) -> (opt text);
   getAllOrganizations: () -> (vec OrgPublic) query;
   getBlogPost: (nat, nat) -> (opt BlogPost) query;
   getBlogPosts: (nat) -> (vec BlogPost) query;
-  getMyInvitations: () -> (vec InvitationInfo) query;
-  getMyOrganizations: () -> (vec OrgPublic) query;
+  getMyInvitations: (principal) -> (vec InvitationInfo) query;
+  getMyOrganizations: (principal) -> (vec OrgPublic) query;
   getOrganization: (nat) -> (opt OrgPublic) query;
   getUserByPrincipal: (principal) -> (opt User) query;
-  respondToInvitation: (text, bool) -> (text);
-  voteOnProposal: (nat, nat, bool, text) -> (text);
+  respondToInvitation: (principal, text, bool) -> (text);
+  voteOnProposal: (principal, nat, nat, bool, text) -> (text);
 }
