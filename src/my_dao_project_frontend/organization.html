@@ -19,6 +19,9 @@
   <button id="createQuorumChangeProposalBtn">Change Quorum</button>
   <button id="createNameChangeProposalBtn">Change Organization Name</button>
 
+  <h2>Blog Posts</h2>
+  <ul id="blogPostsList"></ul>
+
   <div id="proposalForm" style="display: none;">
     <h3 id="proposalFormTitle"></h3>
     <div id="proposalFormFields"></div>
@@ -37,20 +40,23 @@
       window.location.href = "./main.html";
     }
 
+    let globalIdentity = null;
+
     async function initBackendActor() {
       const agent = new HttpAgent({ host: "http://localhost:4943" });
 
-      // For local dfx dev, fetch the root key so certificates verify
       if (process.env.DFX_NETWORK !== "ic") {
         await agent.fetchRootKey();
       }
+
+      const identity = await agent.getPrincipal();
+      globalIdentity = identity;
 
       const actor = Actor.createActor(backendIDL, {
         agent,
         canisterId: backendCanisterId,
       });
 
-      const identity = await agent.getPrincipal();
       return { actor, identity };
     }
 
@@ -88,16 +94,74 @@
         if (org.proposals.length > 0) {
           org.proposals.forEach(p => {
             const li = document.createElement("li");
-            li.textContent = `${p.title} — Status: ${p.status}`;
+            li.innerHTML = `
+              ${p.title} — Status: ${p.status}
+              ${p.status === "open" ? `
+                <button class="voteTrueBtn" data-proposal-id="${p.id}">Vote True</button>
+                <button class="voteFalseBtn" data-proposal-id="${p.id}">Vote False</button>
+              ` : ""}
+            `;
             proposalsList.appendChild(li);
+          });
+
+          document.querySelectorAll(".voteTrueBtn").forEach(button => {
+            button.addEventListener("click", async (event) => {
+              const proposalId = event.target.getAttribute("data-proposal-id");
+              const argument = prompt("Enter your argument for voting true:");
+              if (argument !== null) {
+                await voteOnProposal(proposalId, true, argument);
+              }
+            });
+          });
+
+          document.querySelectorAll(".voteFalseBtn").forEach(button => {
+            button.addEventListener("click", async (event) => {
+              const proposalId = event.target.getAttribute("data-proposal-id");
+              const argument = prompt("Enter your argument for voting false:");
+              if (argument !== null) {
+                await voteOnProposal(proposalId, false, argument);
+              }
+            });
           });
         } else {
           proposalsList.innerHTML = `<li>No proposals found.</li>`;
         }
 
+        // Load blog posts
+        loadBlogPosts();
+
       } catch (e) {
         console.error("Error loading organization details:", e);
         alert("Failed to load organization details. See console.");
+      }
+    }
+
+    async function loadBlogPosts() {
+      try {
+        const { actor } = await initBackendActor();
+        const blogPosts = await actor.getBlogPosts(Number(orgId));
+
+        const blogPostsList = document.getElementById("blogPostsList");
+        blogPostsList.innerHTML = "";
+        if (blogPosts.length > 0) {
+          blogPosts.forEach(post => {
+            const li = document.createElement("li");
+            li.innerHTML = `
+              <strong>${post.title}</strong> by ${Principal.fromUint8Array(post.author._arr).toText()}
+              <br>
+              ${post.content}
+              <br>
+              <em>Published on: ${new Date(Number(post.timestamp) / 1000000).toLocaleString()}</em>
+              <br><br>
+            `;
+            blogPostsList.appendChild(li);
+          });
+        } else {
+          blogPostsList.innerHTML = "<li>No blog posts available.</li>";
+        }
+      } catch (e) {
+        console.error("Error loading blog posts:", e);
+        alert("Failed to load blog posts. See console.");
       }
     }
 
@@ -159,43 +223,62 @@
     });
 
     document.getElementById("submitProposalBtn").addEventListener("click", async () => {
-      const { actor, identity } = await initBackendActor();
-      const nowNs = BigInt(Date.now()) * 1000000n; // Convert milliseconds to nanoseconds
-        const weekNs = 7n * 24n * 60n * 60n * 1000000000n; // 1 week in nanoseconds
-        const deadline = nowNs + weekNs;
+      const { actor } = await initBackendActor();
+      const nowNs = BigInt(Date.now()) * 1_000_000n;
+      const weekNs = 7n * 24n * 60n * 60n * 1_000_000_000n;
+      const deadline = nowNs + weekNs;
 
       try {
         if (proposalFormTitle.textContent === "Invite Member") {
           const invitee = document.getElementById("inviteePrincipal").value;
           const description = document.getElementById("invitationDescription").value;
-          await actor.createInvitationProposal(orgId, invitee, description, deadline);
+          await actor.createInvitationProposal(globalIdentity, Number(orgId), invitee, description, deadline);
         } else if (proposalFormTitle.textContent === "Remove Member") {
           const memberToRemove = document.getElementById("memberToRemove").value;
           const description = document.getElementById("kickDescription").value;
-          await actor.createMemberRemovalProposal(orgId, memberToRemove, description, deadline);
+          await actor.createMemberRemovalProposal(globalIdentity, Number(orgId), memberToRemove, description, deadline);
         } else if (proposalFormTitle.textContent === "Publish Blog Post") {
           const title = document.getElementById("blogPostTitle").value;
           const content = document.getElementById("blogPostContent").value;
           const description = document.getElementById("blogPostDescription").value;
-          await actor.createBlogPostProposal(orgId, title, content, description, deadline);
+          await actor.createBlogPostProposal(
+            globalIdentity,
+            Number(orgId),
+            title,
+            content,
+            description,
+            deadline
+          );
         } else if (proposalFormTitle.textContent === "Change Quorum") {
           const newQuorum = Number(document.getElementById("newQuorum").value);
           const description = document.getElementById("quorumChangeDescription").value;
-          await actor.createQuorumChangeProposal(Number(orgId), newQuorum, description, deadline);
+          await actor.createQuorumChangeProposal(globalIdentity, Number(orgId), newQuorum, description, deadline);
         } else if (proposalFormTitle.textContent === "Change Organization Name") {
           const newName = document.getElementById("newOrgName").value;
           const description = document.getElementById("nameChangeDescription").value;
-          await actor.createNameChangeProposal(identity, Number(orgId), newName, description, deadline);
+          await actor.createNameChangeProposal(globalIdentity, Number(orgId), newName, description, deadline);
         }
 
         alert("Proposal created successfully!");
         proposalForm.style.display = "none";
-        loadOrganizationDetails(); // Refresh proposals list
+        loadOrganizationDetails();
       } catch (e) {
         console.error("Error creating proposal:", e);
         alert("Failed to create proposal. See console.");
       }
     });
+
+    async function voteOnProposal(proposalId, voteFor, argument) {
+      try {
+        const { actor } = await initBackendActor();
+        const response = await actor.voteOnProposal(globalIdentity, Number(orgId), Number(proposalId), voteFor, argument);
+        alert(response);
+        loadOrganizationDetails();
+      } catch (e) {
+        console.error("Error voting on proposal:", e);
+        alert("Failed to vote on proposal. See console.");
+      }
+    }
 
     loadOrganizationDetails();
   </script>
