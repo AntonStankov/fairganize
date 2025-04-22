@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Organization Details</title>
+  <script type="module" crossorigin src="/assets/organization-d954b955.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/proxy-09190287.js">
+  <link rel="modulepreload" crossorigin href="/assets/index-d6a334bf.js">
+</head>
+
+<body>
+  <h1 id="orgName">Organization Details</h1>
+  <p id="orgOwner"></p>
+  <p id="orgQuorum"></p>
+  <ul id="orgMembers"></ul>
+  <ul id="orgProposals"></ul>
+
+  <h2>Create Proposals</h2>
+  <button id="createInvitationProposalBtn">Invite Member</button>
+  <button id="createKickProposalBtn">Remove Member</button>
+  <button id="createBlogPostProposalBtn">Publish Blog Post</button>
+  <button id="createQuorumChangeProposalBtn">Change Quorum</button>
+  <button id="createNameChangeProposalBtn">Change Organization Name</button>
+
+  <div id="proposalForm" style="display: none;">
+    <h3 id="proposalFormTitle"></h3>
+    <div id="proposalFormFields"></div>
+    <button id="submitProposalBtn">Submit Proposal</button>
+  </div>
+
+  
+</body>
+
+</html>

@@ -14,6 +14,7 @@ export default defineConfig({
         index: resolve(__dirname, 'index.html'),
         main: resolve(__dirname, 'main.html'),
         organizations: resolve(__dirname, 'organizations.html'),
+        organization: resolve(__dirname, 'organization.html'),
       },
     },
   },

@@ -272,17 +272,13 @@ actor DAO {
     description: Text,
     deadline: Time.Time
   ) : async Nat {
-    // if (not validateCaller(caller, principal)) {
-    //   return 0; // Unauthorized
-    // };
-    
     switch (organizations.get(orgId)) {
       case (null) { return 0; };
       case (?org) {
         if (org.members.get(principal) == null) {
           return 0;
         };
-        
+
         if (newQuorum == 0) {
           return 0; // Prevent setting quorum to 0
         };
@@ -790,56 +786,54 @@ actor DAO {
     };
   };
 
-  public shared query ({ caller }) func getMyOrganizations(principal: Principal) : async [OrgPublic] {
-    // if (not validateCaller(caller, principal)) {
-    //   return []; // Return empty array if unauthorized
-    // };
-    
+  public shared query func getMyOrganizations(principal: Principal) : async [OrgPublic] {
     var myOrgs : [OrgPublic] = [];
     
+    // Loop through all organizations and check if the user (principal) is a member
     for (org in organizations.vals()) {
-      switch (org.members.get(principal)) {
-        case (?_) {
-          // User is a member of this organization, include it in results
-          let memberArray = Iter.toArray(org.members.keys());
-          let proposalArray = Array.map<Proposal, ProposalPublic>(
-            Iter.toArray(org.proposals.vals()),
-            func (p: Proposal) : ProposalPublic {
-              {
-                id = p.id;
-                title = p.title;
-                description = p.description;
-                deadline = p.deadline;
-                status = p.status;
-                votes_for = p.votes_for;
-                votes_against = p.votes_against;
-                creator = p.creator;
-                voters = Iter.toArray(p.voters.entries());
-                vote_arguments = Iter.toArray(p.vote_arguments.entries());
-                proposalType = p.proposalType;
-              }
-            }
-          );
+        switch (org.members.get(principal)) {
+            case (?_) {
+                // User is a member of this organization, include it in the result
+                let memberArray = Iter.toArray(org.members.keys());
+                let proposalArray = Array.map<Proposal, ProposalPublic>(
+                    Iter.toArray(org.proposals.vals()),
+                    func (p: Proposal) : ProposalPublic {
+                        {
+                            id = p.id;
+                            title = p.title;
+                            description = p.description;
+                            deadline = p.deadline;
+                            status = p.status;
+                            votes_for = p.votes_for;
+                            votes_against = p.votes_against;
+                            creator = p.creator;
+                            voters = Iter.toArray(p.voters.entries());
+                            vote_arguments = Iter.toArray(p.vote_arguments.entries());
+                            proposalType = p.proposalType;
+                        }
+                    }
+                );
 
-          let orgPublic : OrgPublic = {
-            id = org.id;
-            name = org.name;
-            owner = org.owner;
-            members = memberArray;
-            proposals = proposalArray;
-            quorum = org.quorum;
-          };
-          
-          myOrgs := Array.append(myOrgs, [orgPublic]);
+                let orgPublic : OrgPublic = {
+                    id = org.id;
+                    name = org.name;
+                    owner = org.owner;
+                    members = memberArray;
+                    proposals = proposalArray;
+                    quorum = org.quorum;
+                };
+
+                myOrgs := Array.append(myOrgs, [orgPublic]);
+            };
+            case (null) {
+                // User is not a member of this organization, skip it
+            };
         };
-        case (null) {
-          // User is not a member of this organization, skip it
-        };
-      };
     };
-    
+
     return myOrgs;
-  };
+};
+
 
   // Query functions for blog posts
   public query func getBlogPosts(orgId: Nat) : async [Blog.BlogPost] {

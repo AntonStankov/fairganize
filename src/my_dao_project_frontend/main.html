@@ -17,7 +17,7 @@
     <p id="nameStatus" style="color: green; display: none;">Name assigned successfully!</p>
   </div>
 
-  <div id="mainPage" style="display: none;"></div>
+  <div id="mainPage" style="display: none;">
     <h1>Welcome to Fairganize</h1>
     <p id="principalDisplay"></p>
     <button id="createOrgButton">Create Organization</button>
@@ -57,6 +57,7 @@
       });
     };
 
+    // Load the principal of the logged-in user
     const loadPrincipal = async () => {
       const authClient = await AuthClient.create();
       const identity = authClient.getIdentity();
@@ -69,6 +70,7 @@
       }
     };
 
+    // Check if the user exists by principal
     const checkUserName = async () => {
       try {
         if (!userPrincipal) {
@@ -112,55 +114,45 @@
       }
     };
 
+    // Fetch user organizations
     const fetchUserOrganizations = async () => {
-    try {
-      if (!userPrincipal) {
-        throw new Error("User principal is not defined.");
+      try {
+        if (!userPrincipal) {
+          throw new Error("User principal is not defined.");
+        }
+
+        const principalObj = Principal.fromText(userPrincipal);
+        const organizations = await backendActor.getMyOrganizations(principalObj);
+
+        if (!Array.isArray(organizations)) {
+          throw new Error("Invalid response format from getMyOrganizations.");
+        }
+
+        const orgListContainer =
+          document.getElementById("orgList") || document.createElement("div");
+        orgListContainer.id = "orgList";
+        orgListContainer.innerHTML = "";
+        mainPage.appendChild(orgListContainer);
+
+        if (organizations.length > 0) {
+          organizations.forEach((org) => {
+            const button = document.createElement("button");
+            button.textContent = org.name;
+            button.onclick = () => {
+              window.location.href = `./organization.html?orgId=${org.id}`;
+            };
+            orgListContainer.appendChild(button);
+          });
+        } else {
+          const p = document.createElement("p");
+          p.textContent = "You are not part of any organizations.";
+          orgListContainer.appendChild(p);
+        }
+      } catch (err) {
+        console.error("Error fetching user organizations:", err);
+        alert("Failed to fetch your organizations—see console for details.");
       }
-
-      // Convert userPrincipal (Text) to Principal object
-      const principalObj = Principal.fromText(userPrincipal);
-      console.log("Sending principal to backend:", userPrincipal);
-
-      // Pass the Principal object to the backend
-      const organizations = await backendActor.getMyOrganizations(principalObj);
-
-      // Debugging: Log the raw response for inspection
-      console.log("Raw response from getMyOrganizations:", organizations);
-
-      // Ensure the response is an array (vec in Candid)
-      if (!Array.isArray(organizations)) {
-        throw new Error("Invalid response format from getMyOrganizations.");
-      }
-
-      // Get the container for displaying organizations
-      const orgListContainer = document.getElementById("orgList") || document.createElement("ul");
-      orgListContainer.id = "orgList";
-
-      // Clear any existing content in the container
-      orgListContainer.innerHTML = "";
-      mainPage.appendChild(orgListContainer);
-
-      // Populate the list with organization names  
-      if (organizations.length > 0) {
-        organizations.forEach((orgRecord) => {
-          // Access the organization name from the record
-          const orgName = orgRecord.name;  // Each organization has a `name` property
-          const listItem = document.createElement("li");
-          listItem.textContent = orgName;
-          orgListContainer.appendChild(listItem);
-        });
-      } else {
-        const noOrgMessage = document.createElement("p");
-        noOrgMessage.textContent = "You are not part of any organizations.";
-        orgListContainer.appendChild(noOrgMessage);
-      }
-    } catch (error) {
-      console.error("Error fetching user organizations:", error);
-      alert("An error occurred while fetching your organizations. Please try again.");
-    }
-  };
-
+    };
 
     // Call checkUserName after loading principal
     loadPrincipal().then(() => {
@@ -203,7 +195,7 @@
       }
     });
 
-    // Update function calls to pass principal as text
+    // Create organization button
     createOrgButton.addEventListener("click", async () => {
       const orgName = prompt("Enter the name of the organization:");
       if (!orgName) {

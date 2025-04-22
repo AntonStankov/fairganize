@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Organization Details</title>
+</head>
+
+<body>
+  <h1 id="orgName">Organization Details</h1>
+  <p id="orgOwner"></p>
+  <p id="orgQuorum"></p>
+  <ul id="orgMembers"></ul>
+  <ul id="orgProposals"></ul>
+
+  <h2>Create Proposals</h2>
+  <button id="createInvitationProposalBtn">Invite Member</button>
+  <button id="createKickProposalBtn">Remove Member</button>
+  <button id="createBlogPostProposalBtn">Publish Blog Post</button>
+  <button id="createQuorumChangeProposalBtn">Change Quorum</button>
+  <button id="createNameChangeProposalBtn">Change Organization Name</button>
+
+  <div id="proposalForm" style="display: none;">
+    <h3 id="proposalFormTitle"></h3>
+    <div id="proposalFormFields"></div>
+    <button id="submitProposalBtn">Submit Proposal</button>
+  </div>
+
+  <script type="module">
+    import { Actor, HttpAgent } from "@dfinity/agent";
+    import { idlFactory as backendIDL, canisterId as backendCanisterId }
+      from "declarations/my_dao_project_backend";
+    import { Principal } from "@dfinity/principal";
+
+    const params = new URLSearchParams(window.location.search);
+    const orgId = params.get("orgId");
+    if (orgId === null) {
+      alert("Organization ID is missing.");
+      window.location.href = "./main.html";
+    }
+
+    async function initBackendActor() {
+      const agent = new HttpAgent({ host: "http://localhost:4943" });
+      // For local dfx dev, fetch the root key so certificates verify
+      if (process.env.DFX_NETWORK !== "ic") {
+        await agent.fetchRootKey();
+      }
+      return Actor.createActor(backendIDL, {
+        agent,
+        canisterId: backendCanisterId,
+      });
+    }
+
+    async function loadOrganizationDetails() {
+      try {
+        const actor = await initBackendActor();
+        // This returns [] for None, or [OrgPublic] for Some(...)
+        const optOrg = await actor.getOrganization(Number(orgId));
+
+        // If no org or returned [] → redirect
+        if (!Array.isArray(optOrg) || optOrg.length === 0) {
+          alert("Organization not found.");
+          window.location.href = "./main.html";
+          return;
+        }
+
+        // Unwrap the single-element array
+        const org = optOrg[0];
+
+        // Fill in the fields
+        document.getElementById("orgName").textContent =
+          `Organization: ${org.name}`;
+        document.getElementById("orgOwner").textContent =
+          `Owner: ${Principal.fromUint8Array(org.owner._arr).toText()}`;
+        document.getElementById("orgQuorum").textContent =
+          `Quorum: ${org.quorum}`;
+
+        // Members
+        const membersList = document.getElementById("orgMembers");
+        membersList.innerHTML = "";
+        if (org.members.length > 0) {
+          org.members.forEach(m => {
+            const li = document.createElement("li");
+            li.textContent = Principal.fromUint8Array(m._arr).toText();
+            membersList.appendChild(li);
+          });
+        } else {
+          membersList.innerHTML = `<li>No members found.</li>`;
+        }
+
+        // Proposals
+        const proposalsList = document.getElementById("orgProposals");
+        proposalsList.innerHTML = "";
+        if (org.proposals.length > 0) {
+          org.proposals.forEach(p => {
+            const li = document.createElement("li");
+            li.textContent = `${p.title} — Type: ${p.type} — Status: ${p.status}`;
+            proposalsList.appendChild(li);
+          });
+        } else {
+          proposalsList.innerHTML = `<li>No proposals found.</li>`;
+        }
+
+      } catch (e) {
+        console.error("Error loading organization details:", e);
+        alert("Failed to load organization details. See console.");
+      }
+    }
+
+    const proposalForm = document.getElementById("proposalForm");
+    const proposalFormTitle = document.getElementById("proposalFormTitle");
+    const proposalFormFields = document.getElementById("proposalFormFields");
+
+    function showProposalForm(title, fieldsHtml) {
+      proposalFormTitle.textContent = title;
+      proposalFormFields.innerHTML = fieldsHtml;
+      proposalForm.style.display = "block";
+    }
+
+    document.getElementById("createInvitationProposalBtn").addEventListener("click", () => {
+      showProposalForm("Invite Member", `
+        <label for="inviteePrincipal">Invitee Principal:</label>
+        <input type="text" id="inviteePrincipal" />
+        <label for="invitationDescription">Description:</label>
+        <textarea id="invitationDescription"></textarea>
+      `);
+    });
+
+    document.getElementById("createKickProposalBtn").addEventListener("click", () => {
+      showProposalForm("Remove Member", `
+        <label for="memberToRemove">Member Principal to Remove:</label>
+        <input type="text" id="memberToRemove" />
+        <label for="kickDescription">Description:</label>
+        <textarea id="kickDescription"></textarea>
+      `);
+    });
+
+    document.getElementById("createBlogPostProposalBtn").addEventListener("click", () => {
+      showProposalForm("Publish Blog Post", `
+        <label for="blogPostTitle">Blog Post Title:</label>
+        <input type="text" id="blogPostTitle" />
+        <label for="blogPostContent">Content:</label>
+        <textarea id="blogPostContent"></textarea>
+        <label for="blogPostDescription">Description:</label>
+        <textarea id="blogPostDescription"></textarea>
+      `);
+    });
+
+    document.getElementById("createQuorumChangeProposalBtn").addEventListener("click", () => {
+      showProposalForm("Change Quorum", `
+        <label for="newQuorum">New Quorum:</label>
+        <input type="number" id="newQuorum" />
+        <label for="quorumChangeDescription">Description:</label>
+        <textarea id="quorumChangeDescription"></textarea>
+      `);
+    });
+
+    document.getElementById("createNameChangeProposalBtn").addEventListener("click", () => {
+      showProposalForm("Change Organization Name", `
+        <label for="newOrgName">New Organization Name:</label>
+        <input type="text" id="newOrgName" />
+        <label for="nameChangeDescription">Description:</label>
+        <textarea id="nameChangeDescription"></textarea>
+      `);
+    });
+
+    document.getElementById("submitProposalBtn").addEventListener("click", async () => {
+      const actor = await initBackendActor();
+      const deadline = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 1 week from now in seconds
+
+      try {
+        if (proposalFormTitle.textContent === "Invite Member") {
+          const invitee = document.getElementById("inviteePrincipal").value;
+          const description = document.getElementById("invitationDescription").value;
+          await actor.createInvitationProposal(orgId, invitee, description, deadline);
+        } else if (proposalFormTitle.textContent === "Remove Member") {
+          const memberToRemove = document.getElementById("memberToRemove").value;
+          const description = document.getElementById("kickDescription").value;
+          await actor.createMemberRemovalProposal(orgId, memberToRemove, description, deadline);
+        } else if (proposalFormTitle.textContent === "Publish Blog Post") {
+          const title = document.getElementById("blogPostTitle").value;
+          const content = document.getElementById("blogPostContent").value;
+          const description = document.getElementById("blogPostDescription").value;
+          await actor.createBlogPostProposal(orgId, title, content, description, deadline);
+        } else if (proposalFormTitle.textContent === "Change Quorum") {
+          const newQuorum = Number(document.getElementById("newQuorum").value);
+          const description = document.getElementById("quorumChangeDescription").value;
+          await actor.createQuorumChangeProposal(Number(orgId), newQuorum, description, deadline);
+        } else if (proposalFormTitle.textContent === "Change Organization Name") {
+          const newName = document.getElementById("newOrgName").value;
+          const description = document.getElementById("nameChangeDescription").value;
+          await actor.createNameChangeProposal(orgId, newName, description, deadline);
+        }
+
+        alert("Proposal created successfully!");
+        proposalForm.style.display = "none";
+        loadOrganizationDetails(); // Refresh proposals list
+      } catch (e) {
+        console.error("Error creating proposal:", e);
+        alert("Failed to create proposal. See console.");
+      }
+    });
+
+    loadOrganizationDetails();
+  </script>
+</body>
+
+</html>
